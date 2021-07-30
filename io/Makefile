@@ -1,1 +1,1 @@
-CPPFLAGS = -g -std=gnu++17 -Wall -Wextra -Werror -Wshadow -Wconversion -mrdseed -mrdrnd
+CPPFLAGS = -g -std=gnu++17 -Wall -Wextra -Werror -Wshadow -Wconversion -mrdseed -mrdrnd -maes

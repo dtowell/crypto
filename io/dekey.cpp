@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <iomanip>
 #include <memory>
 #include <cstddef>
 
@@ -10,14 +11,6 @@ using buffer_t = std::vector<uint8_t>;
 void fail(std::string msg) {
     std::cout << msg;
     exit(1);
-}
-
-void write_file(std::string filename,const buffer_t &buffer) {
-    std::ofstream out(filename,std::ofstream::binary);
-    if (!out) 
-        fail(std::string("error opening ")+filename+"\n");
-    
-    out.write(reinterpret_cast<const char *>(&buffer[0]),buffer.size());
 }
 
 void decode_base64(const std::string &encoded,buffer_t &buffer) {
@@ -58,10 +51,46 @@ void decode_base64(const std::string &encoded,buffer_t &buffer) {
     }
 }
 
+void output_hex(const buffer_t &buffer) {
+    for (size_t i=0; i<buffer.size(); i++) {
+        if (i%16 == 0)
+            std::cout << std::setw(4) << std::setfill(' ') << std::hex << i << ":";
+        std::cout << " " << std::setw(2) << std::setfill('0') << std::hex << +buffer[i];
+        if (i%16 == 15)
+            std::cout << "\n";
+    }
+    if (buffer.size()%16)
+        std::cout << "\n";
+}
+
+void decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields) {
+    fields.resize(0);
+    size_t i=0;
+    if (buffer[i++] != 0x30) fail("not sequence type\n");
+    if (buffer[i++] != 0x82) fail("length of sequence type wrong\n");
+    size_t s = buffer[i]<<8 | buffer[i+1];
+    if (s != buffer.size()-4) fail("data wrong length\n");
+    i+=2;
+
+    for (int j=0; j<9; j++) {
+        if (buffer[i++] != 0x02) fail("expecting primitive integer type\n");
+        size_t len = buffer[i++];
+        if (len >= 0x80) {
+            if (len != 0x82) fail("length of length is wrong\n");
+            len = buffer[i]<<8 | buffer[i+1];
+            i+=2;
+        }
+        std::vector<uint8_t> t(len);
+        for (size_t k=0; k<len; k++)
+            t[k] = buffer[i++];
+        fields.push_back(t);
+    }
+}
+
 int main(int argc,char *argv[])
 {
-    if (argc != 3) 
-        fail(std::string("usage: ")+argv[0]+" infile outfile\n");
+    if (argc != 2) 
+        fail(std::string("usage: ")+argv[0]+" infile\n");
 
     std::ifstream in(argv[1]);
     if (!in)
@@ -73,5 +102,22 @@ int main(int argc,char *argv[])
 
     buffer_t buffer;
     decode_base64(input,buffer);
-    write_file(argv[2],buffer);
+
+    std::vector<buffer_t> fields;
+    decode_rsakey(buffer,fields);
+
+    for (int i=0; i<9; ++i)
+        output_hex(fields[i]);
+
+/*
+    version           Version,
+    modulus           INTEGER,  -- n
+    publicExponent    INTEGER,  -- e
+    privateExponent   INTEGER,  -- d
+    prime1            INTEGER,  -- p
+    prime2            INTEGER,  -- q
+    exponent1         INTEGER,  -- d mod (p-1)
+    exponent2         INTEGER,  -- d mod (q-1)
+    coefficient       INTEGER,  -- (inverse of q) mod p
+*/
 }

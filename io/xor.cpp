@@ -1,30 +1,45 @@
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 #include <string>
+#include <vector>
 #include <stdint.h>
+
+using buffer_t = std::vector<uint8_t>;
 
 void fail(std::string msg) {
     std::cout << msg;
     exit(1);
 }
 
+void read_file(std::string filename,buffer_t &buffer) {
+    std::ifstream in(filename,std::ifstream::binary);
+    if (!in) 
+        fail(std::string("error opening ")+filename+"\n");
+    in.seekg(0,std::ios::end);
+    buffer.resize(in.tellg());
+    in.seekg(0,std::ios::beg);
+    in.read(reinterpret_cast<char *>(&buffer[0]),buffer.size());
+}
+
+void write_file(std::string filename,const buffer_t &buffer) {
+    std::ofstream out(filename,std::ofstream::binary);
+    if (!out) 
+        fail(std::string("error opening ")+filename+"\n");
+    
+    out.write(reinterpret_cast<const char *>(&buffer[0]),buffer.size());
+}
+
 int main(int argc,char *argv[])
 {
     if (argc != 4) 
-        fail(std::string("usage: ")+argv[0]+" hexkey infile outfile\n");
+        fail(std::string("usage: ")+argv[0]+" key infile outfile\n");
 
-    uint32_t key = (uint32_t)std::stoul(argv[1],nullptr,16);
-    std::ifstream in(argv[2],std::ifstream::binary);
-    if (!in) 
-        fail(std::string("error opening ")+argv[2]+"\n");
-    std::ofstream out(argv[3],std::ofstream::binary);
-    if (!out) 
-        fail(std::string("error opening ")+argv[3]+"\n");
+    uint8_t key = (uint8_t)std::stoi(argv[1]);
 
-    uint32_t bytes;
-    while (!in.eof()) {
-        in.read((char *)&bytes,4);
-        bytes ^= key;
-        out.write((char *)&bytes,in.gcount());
-    }
+    buffer_t buffer;
+    read_file(argv[2],buffer);
+    for (size_t i=0; i<buffer.size(); ++i)
+        buffer[i] ^= key;
+    write_file(argv[3],buffer);
 }
