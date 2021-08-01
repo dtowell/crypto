@@ -1,34 +1,6 @@
-#include <iostream>
-#include <fstream>
-#include <iomanip>
-#include <string>
-#include <vector>
-#include <stdint.h>
+#include "crypto.h"
 
-using buffer_t = std::vector<uint8_t>;
-
-void fail(std::string msg) {
-    std::cout << msg;
-    exit(1);
-}
-
-void read_file(std::string filename,buffer_t &buffer) {
-    std::ifstream in(filename,std::ifstream::binary);
-    if (!in) 
-        fail(std::string("error opening ")+filename+"\n");
-    in.seekg(0,std::ios::end);
-    buffer.resize(in.tellg());
-    in.seekg(0,std::ios::beg);
-    in.read(reinterpret_cast<char *>(&buffer[0]),buffer.size());
-}
-
-void write_file(std::string filename,const buffer_t &buffer) {
-    std::ofstream out(filename,std::ofstream::binary);
-    if (!out) 
-        fail(std::string("error opening ")+filename+"\n");
-    
-    out.write(reinterpret_cast<const char *>(&buffer[0]),buffer.size());
-}
+using namespace crypto;
 
 int main(int argc,char *argv[])
 {
