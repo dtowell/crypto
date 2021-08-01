@@ -68,7 +68,16 @@ void aes_key_expand(block_t key, block_t *expanded) {
     expanded[9] = temp1; 
     temp2 = _mm_aeskeygenassist_si128(temp1,0x36); 
     temp1 = aes_assist(temp1,temp2); 
-    expanded[10] = temp1; 
+    expanded[10] = temp1;
+    expanded[11] = _mm_aesimc_si128(expanded[9]);
+	expanded[12] = _mm_aesimc_si128(expanded[8]);
+	expanded[13] = _mm_aesimc_si128(expanded[7]);
+	expanded[14] = _mm_aesimc_si128(expanded[6]);
+	expanded[15] = _mm_aesimc_si128(expanded[5]);
+	expanded[16] = _mm_aesimc_si128(expanded[4]);
+	expanded[17] = _mm_aesimc_si128(expanded[3]);
+	expanded[18] = _mm_aesimc_si128(expanded[2]);
+	expanded[19] = _mm_aesimc_si128(expanded[1]);
 } 
 
 void output_hex(const buffer_t &buffer) {
@@ -86,12 +95,8 @@ void output_hex(const buffer_t &buffer) {
 void aes_encode(const buffer_t &clear,block_t key,buffer_t &cipher) {
     if (clear.size() % sizeof(block_t) != 0)
         fail("clear text is not multiple of block size");
-    block_t expanded[11];
+    block_t expanded[20];
     aes_key_expand(key,expanded);
-
-for (auto x:expanded)
-    std::cout << x << "\n";
-std::cout << "\n";
 
     cipher.resize(clear.size());
     for (size_t i=0; i < clear.size(); i+=sizeof(block_t)) {
@@ -100,37 +105,32 @@ std::cout << "\n";
         for (int j=1; j<10; j++)
             tmp = _mm_aesenc_si128(tmp,expanded[j]); 
         tmp = _mm_aesenclast_si128(tmp,expanded[10]);
-std::cout << tmp << "\n";
         _mm_storeu_si128((block_t *)&cipher[i],tmp); 
     }
-
-output_hex(cipher);
-
 }
 
 void aes_decode(const buffer_t &cipher,block_t key,buffer_t &clear) {
     if (cipher.size() % sizeof(block_t) != 0)
         fail("cipher text is not multiple of block size");
-    block_t expanded[11];
+    block_t expanded[20];
     aes_key_expand(key,expanded);
-
-for (auto x:expanded)
-    std::cout << x << "\n";
-std::cout << "\n";
 
     clear.resize(cipher.size());
     for (size_t i=0; i < cipher.size(); i+=sizeof(block_t)) {
         block_t tmp = _mm_loadu_si128((const block_t *)&cipher[i]);
-        tmp = _mm_xor_si128(tmp,expanded[0]);    
-        for(int j=1; j<10; j++)
-            tmp = _mm_aesdec_si128(tmp,expanded[j]);
-        tmp = _mm_aesdeclast_si128(tmp,expanded[10]); 
-std::cout << tmp << "\n";
+        tmp = _mm_xor_si128(tmp,expanded[10]);
+        tmp = _mm_aesdec_si128(tmp,expanded[11]);
+        tmp = _mm_aesdec_si128(tmp,expanded[12]);
+        tmp = _mm_aesdec_si128(tmp,expanded[13]);
+        tmp = _mm_aesdec_si128(tmp,expanded[14]);
+        tmp = _mm_aesdec_si128(tmp,expanded[15]);
+        tmp = _mm_aesdec_si128(tmp,expanded[16]);
+        tmp = _mm_aesdec_si128(tmp,expanded[17]);
+        tmp = _mm_aesdec_si128(tmp,expanded[18]);
+        tmp = _mm_aesdec_si128(tmp,expanded[19]);
+        tmp = _mm_aesdeclast_si128(tmp,expanded[0]);
         _mm_storeu_si128((block_t *)&clear[i],tmp);
     }
-
-output_hex(cipher);
-
 }
 
 void read_file(std::string filename,buffer_t &buffer) {
@@ -169,17 +169,13 @@ int main(int argc,char *argv[])
     while (key.size() < sizeof(block_t))
         key.push_back(0);
 
-for (auto x:key)
-    std::cout << std::hex << std::setw(2) << (int)x << " ";
-std::cout << "\n";
+    buffer_t encoded;
+    read_file(argv[2],encoded);
+    if (encoded.size() % sizeof(block_t) != 0) 
+        fail("cipher text not a multiple of block size\n");
 
     buffer_t plain;
-    read_file(argv[2],plain);
-    while (plain.size()%sizeof(block_t) != 0)
-        plain.push_back(0);
+    aes_decode(encoded,*(block_t *)&key[0],plain);
 
-    buffer_t encoded;
-    aes_encode(plain,*(block_t *)&key[0],encoded);
-
-    write_file(argv[3],encoded);
+    write_file(argv[3],plain);
 }
