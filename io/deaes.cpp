@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <immintrin.h>
 #include <cpuid.h>
+#include <cassert>
 
 using buffer_t = std::vector<uint8_t>;
 using block_t = __m128i;
@@ -19,6 +20,19 @@ void fail(std::string msg) {
 std::ostream & operator<<(std::ostream &out,const block_t &b) {
     for (size_t i=0; i<sizeof(block_t); i++)
         out << std::setw(2) << std::setfill('0') << std::hex << (int)((uint8_t *)&b)[i] << " ";
+    return out;
+}
+
+std::ostream & operator<<(std::ostream &out,const buffer_t &buffer) {
+    for (size_t i=0; i<buffer.size(); i++) {
+        if (i%16 == 0)
+            out << std::setw(4) << std::setfill(' ') << std::hex << i << ":";
+        out << " " << std::setw(2) << std::setfill('0') << std::hex << +buffer[i];
+        if (i%16 == 15)
+            out << "\n";
+    }
+    if (buffer.size()%16)
+        out << "\n";
     return out;
 }
 
@@ -156,6 +170,18 @@ int main(int argc,char *argv[])
     uint32_t a,b,c,d;
     if (!__get_cpuid_max(0,nullptr) || !__get_cpuid(1,&a,&b,&c,&d) || !(c & bit_AES))
         fail("AES instructions not available\n");
+
+    {
+        buffer_t in{'T','w','o',' ','O','n','e',' ','N','i','n','e',' ','T','w','o'};
+        block_t key{__builtin_bswap64(0x5468617473206D79ull),__builtin_bswap64(0x204B756E67204675ull)};
+        buffer_t out;
+        buffer_t expect{0x29,0xC3,0x50,0x5F,0x57,0x14,0x20,0xF6,0x40,0x22,0x99,0xB3,0x1A,0x02,0xD7,0x3A};
+        aes_encode(in,key,out);
+        assert(out==expect);
+        buffer_t dec;
+        aes_decode(out,key,dec);
+        assert(dec==in);
+    }
 
     if (argc != 4) 
         fail(std::string("usage: ")+argv[0]+" hexkey infile outfile\n");

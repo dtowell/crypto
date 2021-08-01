@@ -89,10 +89,6 @@ void aes_encode(const buffer_t &clear,block_t key,buffer_t &cipher) {
     block_t expanded[11];
     aes_key_expand(key,expanded);
 
-for (auto x:expanded)
-    std::cout << x << "\n";
-std::cout << "\n";
-
     cipher.resize(clear.size());
     for (size_t i=0; i < clear.size(); i+=sizeof(block_t)) {
         block_t tmp = _mm_loadu_si128((const block_t *)&clear[i]);
@@ -100,37 +96,8 @@ std::cout << "\n";
         for (int j=1; j<10; j++)
             tmp = _mm_aesenc_si128(tmp,expanded[j]); 
         tmp = _mm_aesenclast_si128(tmp,expanded[10]);
-std::cout << tmp << "\n";
         _mm_storeu_si128((block_t *)&cipher[i],tmp); 
     }
-
-output_hex(cipher);
-
-}
-
-void aes_decode(const buffer_t &cipher,block_t key,buffer_t &clear) {
-    if (cipher.size() % sizeof(block_t) != 0)
-        fail("cipher text is not multiple of block size");
-    block_t expanded[11];
-    aes_key_expand(key,expanded);
-
-for (auto x:expanded)
-    std::cout << x << "\n";
-std::cout << "\n";
-
-    clear.resize(cipher.size());
-    for (size_t i=0; i < cipher.size(); i+=sizeof(block_t)) {
-        block_t tmp = _mm_loadu_si128((const block_t *)&cipher[i]);
-        tmp = _mm_xor_si128(tmp,expanded[0]);    
-        for(int j=1; j<10; j++)
-            tmp = _mm_aesdec_si128(tmp,expanded[j]);
-        tmp = _mm_aesdeclast_si128(tmp,expanded[10]); 
-std::cout << tmp << "\n";
-        _mm_storeu_si128((block_t *)&clear[i],tmp);
-    }
-
-output_hex(cipher);
-
 }
 
 void read_file(std::string filename,buffer_t &buffer) {
@@ -168,10 +135,6 @@ int main(int argc,char *argv[])
         fail("key too big\n");
     while (key.size() < sizeof(block_t))
         key.push_back(0);
-
-for (auto x:key)
-    std::cout << std::hex << std::setw(2) << (int)x << " ";
-std::cout << "\n";
 
     buffer_t plain;
     read_file(argv[2],plain);
