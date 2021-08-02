@@ -18,12 +18,19 @@ enaes: enaes.cpp crypto.o
 
 deaes: deaes.cpp crypto.o
 
-test: enaes deaes samp.txt
+tests: tests.cpp crypto.o
+
+test_all: test_crypto test_aes
+
+test_crypto: tests
+	valgrind -q ./tests
+
+test_aes: enaes deaes samp.txt
 	valgrind -q ./enaes 123456789abcdef0123456789abcdef0 samp.txt t2
 	valgrind -q ./deaes 123456789abcdef0123456789abcdef0 t2 t3
 	xxd -g1 samp.txt > hex
 	xxd -g1 t3 > h3
-	diff -yq hex h3
+	diff -qy hex h3
 	valgrind -q ./enaes 123456789abcdef0123456789abcdef0 big.txt t2
 	valgrind -q ./deaes 123456789abcdef0123456789abcdef0 t2 t3
 	xxd -g1 big.txt > hex

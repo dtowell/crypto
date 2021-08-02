@@ -2,6 +2,12 @@
 
 using namespace crypto;
 
+void fail(std::string msg) 
+{
+    std::cout << msg;
+    exit(1);
+}
+
 int main(int argc,char *argv[])
 {
     if (argc != 4) 
@@ -14,8 +20,10 @@ int main(int argc,char *argv[])
         key.push_back(byte);
 
     buffer_t buffer;
-    read_file(argv[2],buffer);
+    if (!read_file(argv[2],buffer))
+        fail(std::string("error reading from ")+argv[2]+"\n");
     for (size_t i=0; i<buffer.size(); ++i)
         buffer[i] = buffer[i] ^ key[i%key.size()];
-    write_file(argv[3],buffer);
+    if (!write_file(argv[3],buffer))
+        fail(std::string("error writing to ")+argv[3]+"\n");
 }

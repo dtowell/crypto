@@ -1,6 +1,13 @@
 #include "crypto.h"
+#include <cpuid.h>
 
 using namespace crypto;
+
+void fail(std::string msg) 
+{
+    std::cout << msg;
+    exit(1);
+}
 
 int main(int argc,char *argv[])
 {
@@ -21,12 +28,15 @@ int main(int argc,char *argv[])
         key.push_back(0);
 
     buffer_t plain;
-    read_file(argv[2],plain);
+    if (!read_file(argv[2],plain))
+        fail(std::string("error reading from ")+argv[2]+"\n");
     while (plain.size()%sizeof(block_t) != 0)
         plain.push_back(0);
 
     buffer_t encoded;
-    aes_encode(plain,*(block_t *)&key[0],encoded);
+    if (!encode_aes(plain,*(block_t *)&key[0],encoded))
+        fail("AES encoding failed\n");
 
-    write_file(argv[3],encoded);
+    if (!write_file(argv[3],encoded))
+        fail(std::string("error writing to ")+argv[3]+"\n");
 }

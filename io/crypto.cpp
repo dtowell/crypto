@@ -20,27 +20,25 @@ std::ostream & operator<<(std::ostream &out,const crypto::block_t &b) {
 }
 
 namespace crypto {
-    void fail(std::string msg) {
-        std::cout << msg;
-        exit(1);
-    }
 
-    void read_file(std::string filename,buffer_t &buffer) {
+    bool read_file(std::string filename,buffer_t &buffer) {
         std::ifstream in(filename,std::ifstream::binary);
         if (!in) 
-            fail(std::string("error opening ")+filename+"\n");
+            return false;
         in.seekg(0,std::ios::end);
         buffer.resize(in.tellg());
         in.seekg(0,std::ios::beg);
         in.read(reinterpret_cast<char *>(&buffer[0]),buffer.size());
+        return true;
     }
 
-    void write_file(std::string filename,const buffer_t &buffer) {
+    bool write_file(std::string filename,const buffer_t &buffer) {
         std::ofstream out(filename,std::ofstream::binary);
         if (!out) 
-            fail(std::string("error opening ")+filename+"\n");
+            return false;
         
         out.write(reinterpret_cast<const char *>(&buffer[0]),buffer.size());
+        return true;
     }
 
     void encode_base64(const buffer_t &plain,std::string &encoded) {
@@ -78,6 +76,9 @@ namespace crypto {
     }
 
     void decode_base64(const std::string &encoded,buffer_t &buffer) {
+
+        // TODO this should probably support/ignore newlines since we generate them in encode_base64()
+
         static const int base64[256] =
         {
             0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -175,9 +176,9 @@ namespace crypto {
         expanded[19] = _mm_aesimc_si128(expanded[1]);
     } 
 
-    void aes_encode(const buffer_t &clear,block_t key,buffer_t &cipher) {
+    bool encode_aes(const buffer_t &clear,block_t key,buffer_t &cipher) {
         if (clear.size() % sizeof(block_t) != 0)
-            fail("clear text is not multiple of block size");
+            return false;
         expanded_key_t expanded;
         aes_key_expand(key,expanded);
 
@@ -190,11 +191,12 @@ namespace crypto {
             tmp = _mm_aesenclast_si128(tmp,expanded[10]);
             _mm_storeu_si128((block_t *)&cipher[i],tmp); 
         }
+        return true;
     }
 
-    void aes_decode(const buffer_t &cipher,block_t key,buffer_t &clear) {
+    bool decode_aes(const buffer_t &cipher,block_t key,buffer_t &clear) {
         if (cipher.size() % sizeof(block_t) != 0)
-            fail("cipher text is not multiple of block size");
+            return false;
         expanded_key_t expanded;
         aes_key_expand(key,expanded);
 
@@ -214,22 +216,23 @@ namespace crypto {
             tmp = _mm_aesdeclast_si128(tmp,expanded[0]);
             _mm_storeu_si128((block_t *)&clear[i],tmp);
         }
+        return true;
     }
 
-    void decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields) {
+    bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields) {
         fields.resize(0);
         size_t i=0;
-        if (buffer[i++] != 0x30) fail("not sequence type\n");
-        if (buffer[i++] != 0x82) fail("length of sequence type wrong\n");
+        if (buffer[i++] != 0x30) return false;
+        if (buffer[i++] != 0x82) return false;
         size_t s = buffer[i]<<8 | buffer[i+1];
-        if (s != buffer.size()-4) fail("data wrong length\n");
+        if (s != buffer.size()-4) return false;
         i+=2;
 
         for (int j=0; j<9; j++) {
-            if (buffer[i++] != 0x02) fail("expecting primitive integer type\n");
+            if (buffer[i++] != 0x02) return false;
             size_t len = buffer[i++];
             if (len >= 0x80) {
-                if (len != 0x82) fail("length of length is wrong\n");
+                if (len != 0x82) return false;
                 len = buffer[i]<<8 | buffer[i+1];
                 i+=2;
             }
@@ -238,6 +241,7 @@ namespace crypto {
                 t[k] = buffer[i++];
             fields.push_back(t);
         }
+        return true;
     }
 
 };

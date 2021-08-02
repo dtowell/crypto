@@ -2,6 +2,12 @@
 
 using namespace crypto;
 
+void fail(std::string msg) 
+{
+    std::cout << msg;
+    exit(1);
+}
+
 int main(int argc,char *argv[])
 {
     if (argc != 3) 
@@ -17,5 +23,6 @@ int main(int argc,char *argv[])
 
     buffer_t buffer;
     decode_base64(input,buffer);
-    write_file(argv[2],buffer);
+    if (!write_file(argv[2],buffer))
+        fail(std::string("error writing ")+argv[2]+"\n");
 }

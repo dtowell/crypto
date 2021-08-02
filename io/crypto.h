@@ -6,25 +6,22 @@
 #include <memory>
 #include <cstddef>
 #include <immintrin.h>
-#include <cpuid.h>
 #include <cassert>
 
 namespace crypto {
     using buffer_t = std::vector<uint8_t>;
     using block_t = __m128i;
 
-    void fail(std::string msg);
-
-    void read_file(std::string filename,buffer_t &buffer);
-    void write_file(std::string filename,const buffer_t &buffer);
+    bool read_file(std::string filename,buffer_t &buffer);
+    bool write_file(std::string filename,const buffer_t &buffer);
 
     void encode_base64(const buffer_t &plain,std::string &encoded);
     void decode_base64(const std::string &encoded,buffer_t &buffer);
 
-    void aes_encode(const buffer_t &clear,block_t key,buffer_t &cipher);
-    void aes_decode(const buffer_t &cipher,block_t key,buffer_t &clear);
+    bool encode_aes(const buffer_t &clear,block_t key,buffer_t &cipher);
+    bool decode_aes(const buffer_t &cipher,block_t key,buffer_t &clear);
 
-    void decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields);
+    bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields);
     /*  version           Version,
         modulus           INTEGER,  -- n
         publicExponent    INTEGER,  -- e

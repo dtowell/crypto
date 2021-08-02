@@ -2,6 +2,12 @@
 
 using namespace crypto;
 
+void fail(std::string msg) 
+{
+    std::cout << msg;
+    exit(1);
+}
+
 int main(int argc,char *argv[])
 {
     if (argc != 2) 
