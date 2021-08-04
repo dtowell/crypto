@@ -8,6 +8,9 @@
 #include <immintrin.h>
 #include <cassert>
 
+#ifndef _CRYPTO_H
+#define _CRYPTO_H
+
 namespace crypto {
     using buffer_t = std::vector<uint8_t>;
     using block_t = __m128i;
@@ -35,3 +38,5 @@ namespace crypto {
 
 std::ostream & operator<<(std::ostream &out,const crypto::buffer_t &buffer);
 std::ostream & operator<<(std::ostream &out,const crypto::block_t &block);
+
+#endif
