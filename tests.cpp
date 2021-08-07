@@ -66,10 +66,10 @@ int main()
         block_t key{__builtin_bswap64(0x5468617473206D79ull),__builtin_bswap64(0x204B756E67204675ull)};
         buffer_t out;
         buffer_t expect{0x29,0xC3,0x50,0x5F,0x57,0x14,0x20,0xF6,0x40,0x22,0x99,0xB3,0x1A,0x02,0xD7,0x3A};
-        assert(encode_aes(in,key,out));
+        assert(encode_aes_ecb(in,key,out));
         assert(out==expect);
         buffer_t dec;
-        assert(decode_aes(out,key,dec));
+        assert(decode_aes_ecb(out,key,dec));
         assert(dec==in);
     }
 }

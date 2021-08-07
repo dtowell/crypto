@@ -22,7 +22,7 @@ int main(int argc,char *argv[])
         std::ifstream in("/dev/urandom",std::ifstream::binary);
         if (!in)
             fail("error opening /dev/urandom\n");
-        if (!in.read((char *)&buffer[0],buffer.size()))
+        if (!in.read(reinterpret_cast<char *>(&buffer[0]),buffer.size()))
             fail("error reading /dev/urandom\n");
     }
     else if (std::string(argv[1]) == "rdrand") {
@@ -30,7 +30,7 @@ int main(int argc,char *argv[])
         if (!__get_cpuid_max(0,nullptr) || !__get_cpuid(0,&a,&b,&c,&d) || !(c & bit_RDRND))
             fail("rdrand not available\n");
         for (int i=0; i<bytes; i+=4)
-            if (!_rdrand32_step((uint32_t *)(&buffer[i])))
+            if (!_rdrand32_step(reinterpret_cast<uint32_t *>(&buffer[i])))
                 fail("rdrand not available\n");
     }
     else if (std::string(argv[1]) == "rdseed") {
@@ -38,18 +38,18 @@ int main(int argc,char *argv[])
         if (!__get_cpuid_max(0,nullptr) || !__get_cpuid(7,&a,&b,&c,&d) || !(b & bit_RDSEED))
             fail("rdrand not available\n");
         for (int i=0; i<bytes; i+=4)
-            if (!_rdseed32_step((uint32_t *)(&buffer[i])))
+            if (!_rdseed32_step(reinterpret_cast<uint32_t *>(&buffer[i])))
                 fail("rdseed not available\n");
     }
     else if (std::string(argv[1]) == "prng") {
         std::random_device roll;
         for (int i=0; i<bytes; i+=4)
-            *(uint32_t *)(&buffer[i]) = roll();
+            *reinterpret_cast<uint32_t *>(&buffer[i]) = roll();
     }
     else if (std::string(argv[1]) == "lcg") {
         uint64_t seed = 0;
         for (int i=0; i<bytes; i+=4)
-            *(uint32_t *)(&buffer[i]) = (uint32_t)((seed=(seed*6364136223846793005UL+1UL))>>16UL);
+            *reinterpret_cast<uint32_t *>(&buffer[i]) = static_cast<uint32_t>((seed=(seed*6364136223846793005UL+1UL))>>16UL);
     }
     else
         fail("unknown source: "+std::string(argv[1]));

@@ -21,8 +21,11 @@ namespace crypto {
     void encode_base64(const buffer_t &plain,std::string &encoded);
     void decode_base64(const std::string &encoded,buffer_t &buffer);
 
-    bool encode_aes(const buffer_t &clear,block_t key,buffer_t &cipher);
-    bool decode_aes(const buffer_t &cipher,block_t key,buffer_t &clear);
+    bool encode_aes_ecb(const buffer_t &clear,block_t key,buffer_t &cipher);
+    bool decode_aes_ecb(const buffer_t &cipher,block_t key,buffer_t &clear);
+
+    bool encode_aes_cbc(const buffer_t &clear,block_t key,block_t iv,buffer_t &cipher);
+    bool decode_aes_cbc(const buffer_t &cipher,block_t key,block_t iv,buffer_t &clear);
 
     bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields);
     /*  version           Version,

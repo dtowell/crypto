@@ -15,7 +15,7 @@ std::ostream & operator<<(std::ostream &out,const crypto::buffer_t &buffer) {
 
 std::ostream & operator<<(std::ostream &out,const crypto::block_t &b) {
     for (size_t i=0; i<sizeof(crypto::block_t); i++)
-        out << std::setw(2) << std::setfill('0') << std::hex << (int)((uint8_t *)&b)[i] << " ";
+        out << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(*reinterpret_cast<uint8_t *>(&b[i])) << " ";
     return out;
 }
 
@@ -98,20 +98,20 @@ namespace crypto {
 
         buffer.resize(0);
         for (size_t i=0; i<last; i+=4) {
-            uint32_t n = base64[(uint8_t)encoded[i]] << 18 
-                | base64[(uint8_t)encoded[i+1]] << 12 
-                | base64[(uint8_t)encoded[i+2]] << 6 
-                | base64[(uint8_t)encoded[i+3]];
-            buffer.push_back((uint8_t)(n >> 16));
-            buffer.push_back((uint8_t)(n >> 8 & 0xFF));
-            buffer.push_back((uint8_t)(n & 0xFF));
+            uint32_t n = base64[static_cast<uint8_t>(encoded[i])] << 18 
+                | base64[static_cast<uint8_t>(encoded[i+1])] << 12 
+                | base64[static_cast<uint8_t>(encoded[i+2])] << 6 
+                | base64[static_cast<uint8_t>(encoded[i+3])];
+            buffer.push_back(static_cast<uint8_t>(n >> 16));
+            buffer.push_back(static_cast<uint8_t>(n >> 8 & 0xFF));
+            buffer.push_back(static_cast<uint8_t>(n & 0xFF));
         }
         if (pad1) {
-            uint32_t n = base64[(uint8_t)encoded[last]] << 18 | base64[(uint8_t)encoded[last+1]] << 12;
-            buffer.push_back((uint8_t)(n >> 16));
+            uint32_t n = base64[static_cast<uint8_t>(encoded[last])] << 18 | base64[static_cast<uint8_t>(encoded[last+1])] << 12;
+            buffer.push_back(static_cast<uint8_t>(n >> 16));
             if (pad2) {
-                n |= base64[(uint8_t)encoded[last+2]] << 6;
-                buffer.push_back((uint8_t)(n >> 8 & 0xFF));
+                n |= base64[static_cast<uint8_t>(encoded[last+2])] << 6;
+                buffer.push_back(static_cast<uint8_t>(n >> 8 & 0xFF));
             }
         }
     }
@@ -176,7 +176,7 @@ namespace crypto {
         expanded[19] = _mm_aesimc_si128(expanded[1]);
     } 
 
-    bool encode_aes(const buffer_t &clear,block_t key,buffer_t &cipher) {
+    bool encode_aes_ecb(const buffer_t &clear,block_t key,buffer_t &cipher) {
         if (clear.size() % sizeof(block_t) != 0)
             return false;
         expanded_key_t expanded;
@@ -184,17 +184,39 @@ namespace crypto {
 
         cipher.resize(clear.size());
         for (size_t i=0; i < clear.size(); i+=sizeof(block_t)) {
-            block_t tmp = _mm_loadu_si128((const block_t *)&clear[i]);
+            block_t tmp = _mm_loadu_si128(reinterpret_cast<const block_t *>(&clear[i]));
             tmp = _mm_xor_si128(tmp,expanded[0]);    
             for (int j=1; j<10; j++)
                 tmp = _mm_aesenc_si128(tmp,expanded[j]); 
             tmp = _mm_aesenclast_si128(tmp,expanded[10]);
-            _mm_storeu_si128((block_t *)&cipher[i],tmp); 
+            _mm_storeu_si128(reinterpret_cast<block_t *>(&cipher[i]),tmp); 
         }
         return true;
     }
 
-    bool decode_aes(const buffer_t &cipher,block_t key,buffer_t &clear) {
+    bool encode_aes_cbc(const buffer_t &clear,block_t key,block_t iv,buffer_t &cipher) {
+        buffer_t padded(clear);
+        size_t padding = sizeof(block_t) - cipher.size() % sizeof(block_t);
+        for (size_t i=0; i<padding; ++i)
+            padded.push_back(static_cast<uint8_t>(padding));
+
+        expanded_key_t expanded;
+        aes_key_expand(key,expanded);
+
+        cipher.resize(padded.size());
+        block_t tmp = iv;
+        for (size_t i=0; i < padded.size(); i+=sizeof(block_t)) {
+            tmp = _mm_xor_si128(tmp,*reinterpret_cast<const block_t *>(&padded[i]));
+            tmp = _mm_xor_si128(tmp,expanded[0]);    
+            for (int j=1; j<10; j++)
+                tmp = _mm_aesenc_si128(tmp,expanded[j]); 
+            tmp = _mm_aesenclast_si128(tmp,expanded[10]);
+            _mm_storeu_si128(reinterpret_cast<block_t *>(&cipher[i]),tmp); 
+        }
+        return true;
+    }
+
+    bool decode_aes_ecb(const buffer_t &cipher,block_t key,buffer_t &clear) {
         if (cipher.size() % sizeof(block_t) != 0)
             return false;
         expanded_key_t expanded;
@@ -202,7 +224,7 @@ namespace crypto {
 
         clear.resize(cipher.size());
         for (size_t i=0; i < cipher.size(); i+=sizeof(block_t)) {
-            block_t tmp = _mm_loadu_si128((const block_t *)&cipher[i]);
+            block_t tmp = _mm_loadu_si128(reinterpret_cast<const block_t *>(&cipher[i]));
             tmp = _mm_xor_si128(tmp,expanded[10]);
             tmp = _mm_aesdec_si128(tmp,expanded[11]);
             tmp = _mm_aesdec_si128(tmp,expanded[12]);
@@ -214,8 +236,51 @@ namespace crypto {
             tmp = _mm_aesdec_si128(tmp,expanded[18]);
             tmp = _mm_aesdec_si128(tmp,expanded[19]);
             tmp = _mm_aesdeclast_si128(tmp,expanded[0]);
-            _mm_storeu_si128((block_t *)&clear[i],tmp);
+            _mm_storeu_si128(reinterpret_cast<block_t *>(&clear[i]),tmp);
         }
+        return true;
+    }
+
+    bool decode_aes_cbc(const buffer_t &cipher,block_t key,block_t iv,buffer_t &clear) {
+        if (cipher.size() % sizeof(block_t) != 0)
+            return false;
+        expanded_key_t expanded;
+        aes_key_expand(key,expanded);
+
+        clear.resize(cipher.size());
+        block_t prev = iv;
+        for (size_t i=0; i < cipher.size(); i+=sizeof(block_t)) {
+            block_t tmp = _mm_loadu_si128(reinterpret_cast<const block_t *>(&cipher[i]));
+            block_t save = tmp;
+            tmp = _mm_xor_si128(tmp,expanded[10]);
+            tmp = _mm_aesdec_si128(tmp,expanded[11]);
+            tmp = _mm_aesdec_si128(tmp,expanded[12]);
+            tmp = _mm_aesdec_si128(tmp,expanded[13]);
+            tmp = _mm_aesdec_si128(tmp,expanded[14]);
+            tmp = _mm_aesdec_si128(tmp,expanded[15]);
+            tmp = _mm_aesdec_si128(tmp,expanded[16]);
+            tmp = _mm_aesdec_si128(tmp,expanded[17]);
+            tmp = _mm_aesdec_si128(tmp,expanded[18]);
+            tmp = _mm_aesdec_si128(tmp,expanded[19]);
+            tmp = _mm_aesdeclast_si128(tmp,expanded[0]);
+            tmp = _mm_xor_si128(tmp,prev);
+            _mm_storeu_si128(reinterpret_cast<block_t *>(&clear[i]),tmp);
+            prev = save;
+        }
+
+        // count final identical bytes
+        size_t same = 0;
+        while (same<clear.size() && clear[clear.size()-same-1]==clear.back())
+            ++same;
+        
+        // validate
+        if (same < clear.back())
+            return false;
+    
+        // remove padding
+        for (same=clear.back(); same; --same)
+            clear.pop_back();
+
         return true;
     }
 
