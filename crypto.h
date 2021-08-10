@@ -27,6 +27,8 @@ namespace crypto {
     bool encode_aes_cbc(const buffer_t &clear,block_t key,block_t iv,buffer_t &cipher);
     bool decode_aes_cbc(const buffer_t &cipher,block_t key,block_t iv,buffer_t &clear);
 
+    bool hash_sha512(const buffer_t &clear,buffer_t &hash);
+
     bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields);
     /*  version           Version,
         modulus           INTEGER,  -- n

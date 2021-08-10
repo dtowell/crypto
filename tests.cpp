@@ -22,6 +22,13 @@ int main()
     }
 
     {
+        buffer_t x;
+        buffer_t hash;
+        assert(hash_sha512(x,hash));
+        std::cout << hash;
+    }
+
+    {
         buffer_t in{'a','n','y',' ','c','a','r','n','a','l',' ','p','l','e','a','s'};
         std::string enc;
         buffer_t dec;

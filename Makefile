@@ -1,6 +1,6 @@
 CPPFLAGS = -g -std=gnu++17 -Wall -Wold-style-cast -Wextra -Werror -Wshadow -Wconversion -mrdseed -mrdrnd -maes
 
-all: rand xor en64 de64 dekey enaesecb deaesecb enaescbc deaescbc
+all: rand xor en64 de64 dekey enaesecb deaesecb enaescbc deaescbc sha
 
 crypto.o: crypto.cpp
 
@@ -21,6 +21,8 @@ deaesecb: deaesecb.cpp crypto.o
 enaescbc: enaescbc.cpp crypto.o
 
 deaescbc: deaescbc.cpp crypto.o
+
+sha: sha.cpp crypto.o
 
 tests: tests.cpp crypto.o
 
@@ -52,4 +54,4 @@ test_aes: enaesecb deaesecb enaescbc deaescbc samp.txt
 	diff -qy hex h3
 
 clean:
-	rm -f *.o rand rand2 xor en64 de64 dekey enaesecb deaesecb enaescbc deaescbc t2 t3 h2 h3 hex
+	rm -f *.o rand rand2 xor en64 de64 dekey enaesecb deaesecb enaescbc deaescbc sha t2 t3 h2 h3 hex
