@@ -284,19 +284,129 @@ namespace crypto {
         return true;
     }
 
-    uint64_t rotate(uint64_t x,uint8_t n) {
-        return x<<n | x>>(64-n);
+    uint32_t rotate(uint32_t x,uint8_t n) {
+        return x>>n | x<<(32-n);
     }
 
-    bool hash_sha512(const buffer_t &clear,buffer_t &hash) {
-        uint64_t h0 = 0x6a09e667f3bcc908ull;
-        uint64_t h1 = 0xbb67ae8584caa73bull;
-        uint64_t h2 = 0x3c6ef372fe94f82bull;
-        uint64_t h3 = 0xa54ff53a5f1d36f1ull;
-        uint64_t h4 = 0x510e527fade682d1ull;
-        uint64_t h5 = 0x9b05688c2b3e6c1full;
-        uint64_t h6 = 0x1f83d9abfb41bd6bull;
-        uint64_t h7 = 0x5be0cd19137e2179ull;
+    bool hash_sha256(const buffer_t &clear,buffer_t &hash) {
+        uint32_t h0 = 0x6a09e667u;
+        uint32_t h1 = 0xbb67ae85u;
+        uint32_t h2 = 0x3c6ef372u;
+        uint32_t h3 = 0xa54ff53au;
+        uint32_t h4 = 0x510e527fu;
+        uint32_t h5 = 0x9b05688cu;
+        uint32_t h6 = 0x1f83d9abu;
+        uint32_t h7 = 0x5be0cd19u;
+
+        static uint32_t k[] = {
+            0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+            0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+            0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+            0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+            0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+            0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+            0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+            0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2        
+        };
+
+        // pad message
+        buffer_t padded(clear);
+        uint64_t size = clear.size();
+        size_t padding = 64 - (size+1+8)%64;
+        padded.push_back(0x80);
+        while (padding--)
+            padded.push_back(0);
+        for (size_t i=0; i<8; i++)
+            padded.push_back(static_cast<uint8_t>((size*8)>>(56-i*8)));
+        assert(padded.size()%64 == 0);
+
+        // process each 64-byte / 512-bit chunk
+        uint32_t *message = reinterpret_cast<uint32_t *>(&padded[0]);
+        for (size_t index=0; index<padded.size(); index+=64) {
+            uint32_t w[64];
+            for (size_t i=0; i<16; ++i)
+                w[i] = __builtin_bswap32(*message++);
+            for (size_t i=16; i<64; ++i) {
+                uint32_t s0 = rotate(w[i-15], 7) ^ rotate(w[i-15],18) ^ (w[i-15] >>  3);
+                uint32_t s1 = rotate(w[i- 2],17) ^ rotate(w[i- 2],19) ^ (w[i- 2] >> 10);
+                w[i] = w[i-16] + s0 + w[i-7] + s1;
+            }
+
+            uint32_t a = h0;
+            uint32_t b = h1;
+            uint32_t c = h2;
+            uint32_t d = h3;
+            uint32_t e = h4;
+            uint32_t f = h5;
+            uint32_t g = h6;
+            uint32_t h = h7;
+
+            //std::cout << a << " ";
+            //std::cout << b << " ";
+            //std::cout << c << " ";
+            //std::cout << d << " ";
+            //std::cout << e << " ";
+            //std::cout << f << " ";
+            //std::cout << g << " ";
+            //std::cout << h << "\n\n";
+
+            for (size_t i=0; i<64; ++i) {
+                uint32_t S1 = rotate(e,6) ^ rotate(e,11) ^ rotate(e,25);
+                uint32_t ch = (e & f) ^ (~e & g);
+                uint32_t temp1 = h + S1 + ch + k[i] + w[i];
+                uint32_t S0 = rotate(a,2) ^ rotate(a,13) ^ rotate(a,22);
+                uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+                uint32_t temp2 = S0 + maj;
+        
+                h = g;
+                g = f;
+                f = e;
+                e = d + temp1;
+                d = c;
+                c = b;
+                b = a;
+                a = temp1 + temp2;
+
+                //std::cout << a << " ";
+                //std::cout << b << " ";
+                //std::cout << c << " ";
+                //std::cout << d << " ";
+                //std::cout << e << " ";
+                //std::cout << f << " ";
+                //std::cout << g << " ";
+                //std::cout << h << "\n";
+            }
+
+            h0 += a;
+            h1 += b;
+            h2 += c;
+            h3 += d;
+            h4 += e;
+            h5 += f;
+            h6 += g;
+            h7 += h;
+        }
+
+        // big-endian
+        hash.resize(32);
+        uint32_t * h = reinterpret_cast<uint32_t *>(&hash[0]);
+        h[0] = __builtin_bswap32(h0);
+        h[1] = __builtin_bswap32(h1);
+        h[2] = __builtin_bswap32(h2);
+        h[3] = __builtin_bswap32(h3);
+        h[4] = __builtin_bswap32(h4);
+        h[5] = __builtin_bswap32(h5);
+        h[6] = __builtin_bswap32(h6);
+        h[7] = __builtin_bswap32(h7);
+        
+        return true;
+    }
+
+    uint64_t rotate(uint64_t x,uint8_t n) {
+        return x>>n | x<<(64-n);
+    }
+
+    bool hash_sha512(const buffer_t &clear,buffer_t &hash,uint64_t *ha) {
 
         static uint64_t k[] = {
             0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc, 0x3956c25bf348b538, 
@@ -320,40 +430,40 @@ namespace crypto {
         // pad message
         buffer_t padded(clear);
         uint64_t size = clear.size();
-        size_t padding = 64 - (size+1+8)%64;
+        size_t padding = 128 - (size+1+16)%128 + 8;
         padded.push_back(0x80);
-        while (padding)
+        while (padding--)
             padded.push_back(0);
         for (size_t i=0; i<8; i++)
-            padded.push_back(static_cast<uint8_t>(size>>(i*8)));
-        assert(padded.size()%64 == 0);
-        uint64_t *message = reinterpret_cast<uint64_t *>(&padded[0]);
+            padded.push_back(static_cast<uint8_t>((size*8)>>(56-i*8)));
+        assert(padded.size()%128 == 0);
 
-        // process each 64-byte / 512-bit chunk
-        for (size_t index=0; index<padded.size(); index+=64) {
-            uint64_t w[64];
+        // process each 128-byte / 1024-bit chunk
+        uint64_t *message = reinterpret_cast<uint64_t *>(&padded[0]);
+        for (size_t index=0; index<padded.size(); index+=128) {
+            uint64_t w[80];
             for (size_t i=0; i<16; ++i)
-                w[i] = *message++;
-            for (size_t i=16; i<64; ++i) {
-                uint64_t s0 = rotate(w[i-15], 7) ^ rotate(w[i-15],18) ^ rotate(w[i-15], 3);
-                uint64_t s1 = rotate(w[i- 2],17) ^ rotate(w[i- 2],19) ^ rotate(w[i- 2],10);
+                w[i] = __builtin_bswap64(*message++);
+            for (size_t i=16; i<80; ++i) {
+                uint64_t s0 = rotate(w[i-15], 1) ^ rotate(w[i-15], 8) ^ (w[i-15] >> 7);
+                uint64_t s1 = rotate(w[i- 2],19) ^ rotate(w[i- 2],61) ^ (w[i- 2] >> 6);
                 w[i] = w[i-16] + s0 + w[i-7] + s1;
             }
 
-            uint64_t a = h0;
-            uint64_t b = h1;
-            uint64_t c = h2;
-            uint64_t d = h3;
-            uint64_t e = h4;
-            uint64_t f = h5;
-            uint64_t g = h6;
-            uint64_t h = h7;
+            uint64_t a = ha[0];
+            uint64_t b = ha[1];
+            uint64_t c = ha[2];
+            uint64_t d = ha[3];
+            uint64_t e = ha[4];
+            uint64_t f = ha[5];
+            uint64_t g = ha[6];
+            uint64_t h = ha[7];
 
-            for (size_t i=0; i<64; ++i) {
-                uint64_t S1 = rotate(e,6) ^ rotate(e,11) ^ rotate(e,25);
+            for (size_t i=0; i<80; ++i) {
+                uint64_t S1 = rotate(e,14) ^ rotate(e,18) ^ rotate(e,41);
                 uint64_t ch = (e & f) ^ (~e & g);
                 uint64_t temp1 = h + S1 + ch + k[i] + w[i];
-                uint64_t S0 = rotate(a,2) ^ rotate(a,13) ^ rotate(a,22);
+                uint64_t S0 = rotate(a,28) ^ rotate(a,34) ^ rotate(a,39);
                 uint64_t maj = (a & b) ^ (a & c) ^ (b & c);
                 uint64_t temp2 = S0 + maj;
         
@@ -365,30 +475,93 @@ namespace crypto {
                 c = b;
                 b = a;
                 a = temp1 + temp2;
+
+                //std::cout << a << " ";
+                //std::cout << b << " ";
+                //std::cout << c << " ";
+                //std::cout << d << " ";
+                //std::cout << e << " ";
+                //std::cout << f << " ";
+                //std::cout << g << " ";
+                //std::cout << h << "\n";
             }
 
-            h0 += a;
-            h1 += b;
-            h2 += c;
-            h3 += d;
-            h4 += e;
-            h5 += f;
-            h6 += g;
-            h7 += h;
+            ha[0] += a;
+            ha[1] += b;
+            ha[2] += c;
+            ha[3] += d;
+            ha[4] += e;
+            ha[5] += f;
+            ha[6] += g;
+            ha[7] += h;
         }
 
         // big-endian
         hash.resize(64);
         uint64_t * h = reinterpret_cast<uint64_t *>(&hash[0]);
-        h[0] = __builtin_bswap64(h0);
-        h[1] = __builtin_bswap64(h1);
-        h[2] = __builtin_bswap64(h2);
-        h[3] = __builtin_bswap64(h3);
-        h[4] = __builtin_bswap64(h4);
-        h[5] = __builtin_bswap64(h5);
-        h[6] = __builtin_bswap64(h6);
-        h[7] = __builtin_bswap64(h7);
+        h[0] = __builtin_bswap64(ha[0]);
+        h[1] = __builtin_bswap64(ha[1]);
+        h[2] = __builtin_bswap64(ha[2]);
+        h[3] = __builtin_bswap64(ha[3]);
+        h[4] = __builtin_bswap64(ha[4]);
+        h[5] = __builtin_bswap64(ha[5]);
+        h[6] = __builtin_bswap64(ha[6]);
+        h[7] = __builtin_bswap64(ha[7]);
         
+        return true;
+    }
+
+
+    bool hash_sha512(const buffer_t &clear,buffer_t &hash) {
+        uint64_t h[] = {
+            0x6a09e667f3bcc908ull,
+            0xbb67ae8584caa73bull,
+            0x3c6ef372fe94f82bull,
+            0xa54ff53a5f1d36f1ull,
+            0x510e527fade682d1ull,
+            0x9b05688c2b3e6c1full,
+            0x1f83d9abfb41bd6bull,
+            0x5be0cd19137e2179ull,
+        };
+        return hash_sha512(clear,hash,h);
+    }
+
+    bool hash_sha512_256(const buffer_t &clear,buffer_t &hash)
+    {
+        // bootstrap
+        uint64_t h[] = {
+            0x6a09e667f3bcc908ull ^ 0xa5a5a5a5a5a5a5a5,
+            0xbb67ae8584caa73bull ^ 0xa5a5a5a5a5a5a5a5,
+            0x3c6ef372fe94f82bull ^ 0xa5a5a5a5a5a5a5a5,
+            0xa54ff53a5f1d36f1ull ^ 0xa5a5a5a5a5a5a5a5,
+            0x510e527fade682d1ull ^ 0xa5a5a5a5a5a5a5a5,
+            0x9b05688c2b3e6c1full ^ 0xa5a5a5a5a5a5a5a5,
+            0x1f83d9abfb41bd6bull ^ 0xa5a5a5a5a5a5a5a5,
+            0x5be0cd19137e2179ull ^ 0xa5a5a5a5a5a5a5a5,
+        };
+        buffer_t name{'S','H','A','-','5','1','2','/','2','5','6'};
+        buffer_t temp;
+        if (!hash_sha512(name,temp,h))
+            return false;
+        
+        // full hash with inital h0 thru h7
+        for (size_t i=0; i<8; i++)
+            h[i] = __builtin_bswap64(reinterpret_cast<uint64_t *>(&temp[0])[i]);
+        if (!hash_sha512(clear,temp,h))
+            return false;
+
+        //std::cout << std::hex << h[0] << " ";
+        //std::cout << h[1] << " ";
+        //std::cout << h[2] << " ";
+        //std::cout << h[3] << " ";
+        //std::cout << h[4] << " ";
+        //std::cout << h[5] << " ";
+        //std::cout << h[6] << " ";
+        //std::cout << h[7] << "\n";
+
+        hash.resize(256/8);
+        for (size_t i=0; i<256/8; i++)
+            hash[i] = temp[i];
         return true;
     }
 
