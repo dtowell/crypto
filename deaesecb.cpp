@@ -1,5 +1,4 @@
 #include "crypto.h"
-#include <cpuid.h>
 
 using namespace crypto;
 

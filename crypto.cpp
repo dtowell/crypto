@@ -565,7 +565,113 @@ namespace crypto {
         return true;
     }
 
-    bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields) {
+    bool rand_rdrand(size_t bytes,buffer_t &buffer)
+    {
+        uint32_t a,b,c,d;
+        if (!__get_cpuid_max(0,nullptr) || !__get_cpuid(0,&a,&b,&c,&d) || !(c & bit_RDRND))
+            return false;
+        buffer.resize((bytes+3)&~3); // round up to multiple of 4
+        for (size_t i=0; i<bytes; i+=4)
+            if (!_rdrand32_step(reinterpret_cast<uint32_t *>(&buffer[i])))
+                return false;
+        return true;
+    }
+
+    bool is_prime(uint64_t x)
+    {
+        if (x==2 || x==3)
+            return true;
+        if (x<=1 || x%2==0 || x%3==0)
+            return false;
+        for (uint64_t n=5; n*n<=x; n+=6)
+            if (x%n==0 || x%(n+2)==0)
+                return false;
+        return true;
+    }
+
+    uint64_t next_prime(uint64_t x)
+    {
+        while (!is_prime(++x))
+            ;
+        return x;
+    }
+
+    bool rsa_generate(rsa_private_t &key) 
+    {
+        buffer_t bytes;
+        if (!rand_rdrand(8,bytes))
+            return false;
+        uint32_t p = reinterpret_cast<uint32_t *>(&bytes[0])[0];
+        uint32_t q = reinterpret_cast<uint32_t *>(&bytes[0])[1];
+        key.p = next_prime(p);
+        key.q = next_prime(q);
+
+        uint64_t e = key.p*key.q;
+        while (e >= (key.p-1)*(key.q-1)) {
+            if (!rand_rdrand(8,bytes))
+                return false;
+            e = next_prime(*reinterpret_cast<uint64_t *>(&bytes[0]));
+        }
+        key.e = e;
+
+        // https://crypto.stackexchange.com/questions/5889/calculating-rsa-private-exponent-when-given-public-exponent-and-the-modulus-fact
+        uint64_t a = key.e;
+        uint64_t b = (key.p-1)*(key.q-1);
+        uint64_t x = 0;
+        uint64_t y = 1;
+        while (true) {
+            if (a==1) {
+                key.d = y;
+                break;
+            }
+            assert(a!=0);
+            x += (b/a)*y;
+            b %= a;
+            if (b==1) {
+                key.d = (key.p-1)*(key.q-1)-x;
+                break;
+            }
+            assert(b!=0);
+            y += (a/b)*y;
+            a %= b;
+        }
+
+        return true;
+    }
+
+    bool rsa_publish(const rsa_private_t &key, rsa_public_t &pub)
+    {
+        pub.n = key.p * key.q;
+        pub.e = key.e;
+        return true;
+    }
+
+    uint64_t pow_mod(uint64_t x,uint64_t e,uint64_t m)
+    {
+        x %= m;
+        uint64_t r = 1;
+        while (e) {
+            if (e&1)
+                r = (r*x) % m;
+            e >>= 1;
+            x *= x;
+        }
+        return r;
+    }
+
+    bool rsa_encode(uint64_t plain,const rsa_public_t &pub,uint64_t &encoded)
+    {
+        encoded = pow_mod(plain,pub.e,pub.n);
+        return true;
+    }
+    bool rsa_decode(uint64_t encoded,const rsa_private_t &key,uint64_t &plain)
+    {
+        plain = pow_mod(encoded,key.d,key.p*key.q);
+        return true;
+    }
+
+    bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields) 
+    {
         fields.resize(0);
         size_t i=0;
         if (buffer[i++] != 0x30) return false;

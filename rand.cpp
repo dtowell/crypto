@@ -1,5 +1,4 @@
 #include "crypto.h"
-#include <cpuid.h>
 #include <random>
 
 using namespace crypto;

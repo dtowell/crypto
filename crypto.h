@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <immintrin.h>
 #include <cassert>
+#include <cpuid.h>
 
 #ifndef _CRYPTO_H
 #define _CRYPTO_H
@@ -17,6 +18,8 @@ namespace crypto {
 
     bool read_file(std::string filename,buffer_t &buffer);
     bool write_file(std::string filename,const buffer_t &buffer);
+
+    bool rand_rdrand(size_t bytes,buffer_t &buffer);
 
     void encode_base64(const buffer_t &plain,std::string &encoded);
     void decode_base64(const std::string &encoded,buffer_t &buffer);
@@ -30,6 +33,20 @@ namespace crypto {
     bool hash_sha256(const buffer_t &clear,buffer_t &hash);
     bool hash_sha512(const buffer_t &clear,buffer_t &hash);
     bool hash_sha512_256(const buffer_t &clear,buffer_t &hash);
+
+    struct rsa_private_t {
+        uint64_t    p,q;
+        uint64_t    e,d;
+    };
+
+    struct rsa_public_t {
+        uint64_t    e,n;
+    };
+
+    bool rsa_generate(rsa_private_t &key);
+    bool rsa_publish(const rsa_private_t &key, rsa_public_t &pub);
+    bool rsa_encode(uint64_t plain,const rsa_public_t &pub,uint64_t &encoded);
+    bool rsa_decode(uint64_t encoded,const rsa_private_t &key,uint64_t &plain);
 
     bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields);
     /*  version           Version,
