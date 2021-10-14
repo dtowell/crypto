@@ -596,46 +596,65 @@ namespace crypto {
         return x;
     }
 
-    bool rsa_generate(rsa_private_t &key) 
+    uint64_t pow_mod(uint64_t base,uint64_t exp,uint64_t mod)
     {
-        buffer_t bytes;
-        if (!rand_rdrand(8,bytes))
-            return false;
-        uint32_t p = reinterpret_cast<uint32_t *>(&bytes[0])[0];
-        uint32_t q = reinterpret_cast<uint32_t *>(&bytes[0])[1];
-        key.p = next_prime(p);
-        key.q = next_prime(q);
-
-        uint64_t e = key.p*key.q;
-        while (e >= (key.p-1)*(key.q-1)) {
-            if (!rand_rdrand(8,bytes))
-                return false;
-            e = next_prime(*reinterpret_cast<uint64_t *>(&bytes[0]));
+        uint64_t r = 1;
+        base %= mod;
+        while (exp) {
+            // if (trace) std::cout << base << " " << exp << " " << mod << " " << r << "\n";
+            if (exp&1)
+                r = static_cast<uint64_t>(static_cast<uint128_t>(r)*base % mod);
+            exp >>= 1;
+            base = static_cast<uint64_t>(static_cast<uint128_t>(base)*base % mod);
         }
-        key.e = e;
+        return r;
+    }
 
+    uint64_t inv_mod(uint64_t e,uint64_t m)
+    {
         // https://crypto.stackexchange.com/questions/5889/calculating-rsa-private-exponent-when-given-public-exponent-and-the-modulus-fact
-        uint64_t a = key.e;
-        uint64_t b = (key.p-1)*(key.q-1);
+        uint64_t a = e;
+        uint64_t b = m;
         uint64_t x = 0;
         uint64_t y = 1;
         while (true) {
-            if (a==1) {
-                key.d = y;
-                break;
-            }
-            assert(a!=0);
-            x += (b/a)*y;
+            if (a==1)
+                return y;
+            assert(a != 0);
+            x = static_cast<uint64_t>(x + static_cast<uint128_t>(b/a)*y);
             b %= a;
-            if (b==1) {
-                key.d = (key.p-1)*(key.q-1)-x;
-                break;
+            if (b==1) return m-x;
+            if (b==0) {
+                std::cout << a << "\n";
+                std::cout << x << "\n";
+                std::cout << y << "\n";
             }
-            assert(b!=0);
-            y += (a/b)*y;
+            assert(b != 0);
+            y = static_cast<uint64_t>(y + static_cast<uint128_t>(a/b)*x);
             a %= b;
         }
+    }
 
+    bool rsa_generate(rsa_private_t &key) 
+    {
+        // https://www.di-mgt.com.au/rsa_alg.html
+        key.e = 65537;
+        key.p = 1;
+        while (key.p % key.e == 1) {
+            buffer_t bytes;
+            if (!rand_rdrand(4,bytes))
+                return false;
+            key.p = next_prime(*reinterpret_cast<uint32_t *>(&bytes[0]) & 0xFFFFF);
+        }
+        key.q = 1;
+        while (key.q % key.e == 1) {
+            buffer_t bytes;
+            if (!rand_rdrand(4,bytes))
+                return false;
+            key.q = next_prime(*reinterpret_cast<uint32_t *>(&bytes[0]) & 0xFFFFF);
+        }
+
+        key.d = inv_mod(key.e,(key.p-1)*(key.q-1));
         return true;
     }
 
@@ -644,19 +663,6 @@ namespace crypto {
         pub.n = key.p * key.q;
         pub.e = key.e;
         return true;
-    }
-
-    uint64_t pow_mod(uint64_t x,uint64_t e,uint64_t m)
-    {
-        x %= m;
-        uint64_t r = 1;
-        while (e) {
-            if (e&1)
-                r = (r*x) % m;
-            e >>= 1;
-            x *= x;
-        }
-        return r;
     }
 
     bool rsa_encode(uint64_t plain,const rsa_public_t &pub,uint64_t &encoded)

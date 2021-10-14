@@ -15,6 +15,7 @@
 namespace crypto {
     using buffer_t = std::vector<uint8_t>;
     using block_t = __m128i;
+    using uint128_t = unsigned __int128;
 
     bool read_file(std::string filename,buffer_t &buffer);
     bool write_file(std::string filename,const buffer_t &buffer);
@@ -33,6 +34,11 @@ namespace crypto {
     bool hash_sha256(const buffer_t &clear,buffer_t &hash);
     bool hash_sha512(const buffer_t &clear,buffer_t &hash);
     bool hash_sha512_256(const buffer_t &clear,buffer_t &hash);
+
+    bool is_prime(uint64_t x);
+    uint64_t next_prime(uint64_t x);
+    uint64_t pow_mod(uint64_t x,uint64_t e,uint64_t m);
+    uint64_t inv_mod(uint64_t e,uint64_t m);
 
     struct rsa_private_t {
         uint64_t    p,q;
