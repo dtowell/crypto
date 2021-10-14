@@ -1,0 +1,101 @@
+1 byte   8 bits  2^8      256     0..255      -128..127     char
+2 bytes 16 bits 2^16    65536   0..65535    -32768..32767   short
+4 bytes 32 bits 2^32      4B+     0..4B+      -2B+..2B+     int (long)
+8 bytes 64 bits 2^64                                        long long
+
+we need several thousand bits, but how? and what do about operators?
+
+how to encode our number in those bits
+    1) store as strings?, not very efficient but easier?
+    2) store as giant binary numbers (array), MUCH more efficient, multiplication O(n^2)
+
+string  digits;         // null == 0
+--
+ubyte   digits[MAX];    // low-order first
+int     size;           // 0 == 0
+--
+uint    digits[MAX];    // low-order first
+int     size;           // 0 == 0
+--
+typedef unsigned int uint;
+    
+operations required: elementary arithmetic and ?
+    convert a string to a NNI 
+    convert a NNI to a string for display (in base 10) 
+    add two NNIs 
+    given two NNIs, determine which is greater 
+    subtract a smaller NNI from a larger NNI 
+    multiply two NNIs 
+    divide a non-zero NNI into a NNI finding the quotent and remainder
+    
+string -> NNI
+    x <- 0
+    foreach char
+        x <- x*10 + char - '0'
+
+NNI -> string
+    digits <- ""
+    while x > 0
+        digits <- (x%10 + '0') + digits
+        x <- x/10
+
+add (a + b -> s)
+    carry <- 0
+    foreach digit
+        s[i] = a[i] + b[i] + carry
+        carry <- overflow?
+    s[i] <- carry
+    normalize s
+        
+subtract (a - b -> s) -- only if a > b
+    borrow <- 0
+    foreach digit
+        s[i] = a[i] - b[i] - borrow
+        borrow <- overflow?
+    normalize s
+    
+multiply (a * b -> s)
+    s <- 0
+    foreach digit in a as j
+        t <- 0
+        foreach digit in b as i
+            t <- t + s[j+i] + a[i] * b[j]
+            s[j+i] <- lowhalf(t)
+            t <- highhalf(t)
+    normalize s
+
+divide (u/v -> q & r) -- u>v and v!=0 
+    r <- u
+    m <- numdigits(u)
+    n <- numdigits(v)
+    for k <- m-n, m-n-1, ..., 1, 0
+        qhat <- f(r[k+n],r[k+n-1],r[k+n-2],v[n-1],v[n-2])
+        w <- v * (qhat << k digits)
+        if w > r
+            qhat <- qhat - 1
+            w <- v * (qhat << k digits)
+        q[k] <- qhat
+        r <- r - w
+    normalize q & r
+    
+f (u,u1,u2,v1,v2 -> q)
+    q <- (u<<1 + u1) / v1
+    r <- (u<<1 + u1) % v1
+    if high(q) > 0
+        q <- q - 1
+        r <- r + v1
+    while high(r)=0 and q*v2 > r<<1+u2
+        q <- q - 1
+        r <- r + v1
+
+debugging strategies
+    may need a "dump" routine, since NNI->string uses divide
+    edge cases, way for "math folks" to contribute
+    look for big number calculators (ie, maple, etc.)
+    choose smaller types (chars?) so you can compare with longer types (long long)
+    
+performance
+    multiply O(n^2) is not optimal, known better solutions
+    high-bit loading is required to give best division performance
+     
+    

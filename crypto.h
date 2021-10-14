@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iomanip>
 #include <vector>
+#include <algorithm>
 #include <string>
 #include <memory>
 #include <cstddef>
@@ -53,6 +54,46 @@ namespace crypto {
     bool rsa_publish(const rsa_private_t &key, rsa_public_t &pub);
     bool rsa_encode(uint64_t plain,const rsa_public_t &pub,uint64_t &encoded);
     bool rsa_decode(uint64_t encoded,const rsa_private_t &key,uint64_t &plain);
+
+    class nni_t {
+    public:
+        using digit_t = uint64_t;
+        using long_t = uint128_t;
+
+    private:
+        std::vector<digit_t> digits;
+
+        void canonicalize();
+
+        digit_t operator[](size_t i) const { 
+            return i<digits.size() ? digits[i] : 0; 
+        }
+
+        nni_t & operator<<=(size_t shift);
+        nni_t & operator>>=(size_t shift);
+
+        friend nni_t operator+(const nni_t &u,const nni_t &v);
+        friend nni_t operator-(const nni_t &u,const nni_t &v);
+        friend nni_t operator*(const nni_t &u,const nni_t &v);
+        friend void divide(const nni_t &u,const nni_t &v,nni_t &q,nni_t &r);
+        friend nni_t expmod(const nni_t &a,const nni_t &e,const nni_t &b);
+        friend bool operator<(const nni_t &u,const nni_t &v);
+        friend std::ostream & operator<<(std::ostream &out,const nni_t &u);
+
+    public:
+        nni_t() { ; }
+        nni_t(digit_t x) : digits{x} { ; }
+        nni_t(const std::string &str) {
+            nni_t r;
+            nni_t ten(10);
+            for (char c:str)
+                r = r*ten + nni_t(c-'0');
+            *this = r;
+        }
+
+        void dump();
+        int top_zeros() const;
+    };
 
     bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields);
     /*  version           Version,
