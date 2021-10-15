@@ -286,4 +286,207 @@ int main()
         assert(is_prime(pub.e));
         assert(pub.e == 65537);
     }
+
+    {
+        nni_t a;
+        assert(format(a) == "0");
+        set(a,7);
+        assert(digit(a,0) == 7);
+        assert(a.size() == 1);
+        set(a,123456789012345);
+        assert(digit(a,0) == 123456789012345);
+        assert(a.size() == 1);
+        set(a,"1");
+        assert(digit(a,0) == 1);
+        assert(a.size() == 1);
+        set(a,"3");
+        assert(digit(a,0) == 3);
+        assert(a.size() == 1);
+
+        nni_t b;
+        multiply(b,a,a);
+        assert(digit(b,0) == 9);
+        assert(b.size()==1);
+
+        nni_t c;
+        multiply(c,b,a);
+        assert(digit(c,0) == 27);
+        assert(b.size()==1);
+
+        set(a,"12");
+        assert(digit(a,0) == 12);
+        assert(a.size() == 1);
+        set(a,"123456789012345678901234567890");
+        assert(a.size() == 2);
+        set(a,"123");
+        assert(digit(a,0) == 123);
+        assert(a.size() == 1);
+    }
+
+    {
+        nni_t a;
+        assert(format(a) == "0");
+        set(a,7);
+        assert(format(a) == "7");
+        set(a,123456789012345);
+        assert(format(a) == "123456789012345");
+    }
+
+    {
+        nni_t a;
+        assert(format(a) == "0");
+        set(a,"99");
+        assert(format(a) == "99");
+        set(a,"1234567890123456789012345678901234567890");
+        assert(format(a) == "1234567890123456789012345678901234567890");
+    }
+
+    {
+        nni_t a;
+        set(a,1);
+        shiftleft(a,1);
+        assert(format(a) == "2");
+        shiftleft(a,1);
+        assert(format(a) == "4");
+        shiftleft(a,1);
+        assert(format(a) == "8");
+        shiftleft(a,1);
+        assert(format(a) == "16");
+        shiftleft(a,4);
+        assert(format(a) == "256");
+        shiftleft(a,8);
+        assert(format(a) == "65536");
+        shiftleft(a,16);
+        assert(format(a) == "4294967296");
+        shiftleft(a,32);
+        assert(a.size()==2);
+        assert(a[0]==0);
+        assert(a[1]==1);
+        shiftright(a,1);
+        assert(a.size()==1);
+        shiftright(a,63);
+        assert(a.size()==1);
+        assert(a[0]==1);
+        shiftright(a,1);
+        assert(a.size()==0);
+    }
+
+    {
+        nni_t a,b,c,d;
+
+        set(a,1);
+        shiftleft(a,1);
+        shiftleft(a,63);
+
+        set(b,7);
+        shiftleft(b,2);
+        shiftleft(b,62);
+
+        add(c,a,b);
+        assert(c.size()==2);
+        assert(c[0]==0);
+        assert(c[1]==8);
+
+        set(a,10000);
+        shiftleft(a,62);
+        shiftleft(a,2);
+        set(b,30000);
+        shiftleft(b,32);
+        shiftleft(b,32);
+        set(c,1234);
+        add(d,a,c);         // d = 10000<<64 + 1234
+        add(a,b,c);         // a = 30000<<64 + 1234
+        add(b,a,d);         // b = 40000<<64 + 1234*2
+        assert(b.size()==2);
+        assert(b[0] == 1234*2);
+        assert(b[1]==40000);
+    }
+
+    {
+        nni_t a,b,c,d;
+
+        set(a,1);
+        shiftleft(a,1);
+        shiftleft(a,63);
+
+        set(b,7);
+        shiftleft(b,2);
+        shiftleft(b,62);
+
+        subtract(c,b,a);
+        assert(c.size()==2);
+        assert(c[0]==0);
+        assert(c[1]==6);
+
+        set(a,10000);
+        shiftleft(a,62);
+        shiftleft(a,2);
+        set(b,30000);
+        shiftleft(b,32);
+        shiftleft(b,32);
+        set(c,1234);
+        add(d,a,c);         // d = 10000<<64 + 1234
+        add(a,b,c);         // a = 30000<<64 + 1234
+        subtract(b,a,d);    // b = 20000<<64 + 0
+        assert(b.size()==2);
+        assert(b[0] == 0);
+        assert(b[1]==20000);
+    }
+
+    {
+        nni_t a,b,c,d;
+
+        set(a,3);
+        shiftleft(a,1);
+        shiftleft(a,63);
+
+        set(b,7);
+        shiftleft(b,2);
+        shiftleft(b,62);
+
+        multiply(c,b,a);
+        assert(c.size()==3);
+        assert(c[0]==0);
+        assert(c[0]==0);
+        assert(c[2]==21);
+    }
+
+    {
+        nni_t a,b,c;
+
+        a.push_back(2);
+        a.push_back(3);
+        a.push_back(4);
+
+        b.push_back(5);
+        b.push_back(6);
+        b.push_back(7);
+
+        //          4   3   2
+        //       x  7   6   5
+        //       ------------
+        //         20  15  10
+        //     24  18  12
+        // 28  21  14
+
+        multiply(c,a,b);
+        assert(c.size()==5);
+        assert(c[0] == 2*5);
+        assert(c[1] == 3*5+2*6);
+        assert(c[2] == 4*5+6*3+7*2);
+        assert(c[3] == 4*6+7*3);
+        assert(c[4] == 4*7);
+    }
+
+    {
+        // lessor()
+    }
+
+    {
+        // divide()
+    }
+
+    {
+        // expmod()
+    }
 }

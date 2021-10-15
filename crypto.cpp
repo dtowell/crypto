@@ -19,6 +19,12 @@ std::ostream & operator<<(std::ostream &out,const crypto::block_t &b) {
     return out;
 }
 
+std::ostream & operator<<(std::ostream &out,const crypto::nni_t &u) {
+    for (auto d:u)
+        out << std::hex << std::setw(16) << std::setfill('0') << d << " ";
+    return out;
+}
+
 namespace crypto {
 
     bool read_file(std::string filename,buffer_t &buffer) {
@@ -624,11 +630,11 @@ namespace crypto {
             x = static_cast<uint64_t>(x + static_cast<uint128_t>(b/a)*y);
             b %= a;
             if (b==1) return m-x;
-            if (b==0) {
-                std::cout << a << "\n";
-                std::cout << x << "\n";
-                std::cout << y << "\n";
-            }
+            //if (b==0) {
+            //    std::cout << a << "\n";
+            //    std::cout << x << "\n";
+            //    std::cout << y << "\n";
+            //}
             assert(b != 0);
             y = static_cast<uint64_t>(y + static_cast<uint128_t>(a/b)*x);
             a %= b;
@@ -677,52 +683,58 @@ namespace crypto {
     }
 
 
-    void nni_t::canonicalize() {
-        while (digits.size() && digits.back()==0)
-            digits.pop_back();
+    void set(nni_t &r, digit_t n) {
+        r.clear();
+        if (n)
+            r.push_back(n);
     }
 
-    nni_t & nni_t::operator<<=(size_t shift) {
-        assert(shift <= sizeof(digit_t)*8);
-        if (shift == 0) 
-            return *this;
+    void set(nni_t &r, const std::string & str) {
+        r.clear();
+        nni_t ten,digit,t;
+        set(ten,10);
+        for (char c:str) {
+            set(digit,c-'0');
+            multiply(t,ten,r);
+            add(r,t,digit);
+        }
+    }
+
+    void canonicalize(nni_t &u) {
+        while (u.size() && u.back()==0)
+            u.pop_back();
+    }
+
+    void shiftleft(nni_t &u,size_t shift) {
+        assert(shift < sizeof(digit_t)*8);
+        if (shift == 0) return;
 
         digit_t bits = 0;
-        for (size_t i=0; i<digits.size(); i++) {
-            digit_t d = digits[i];
-            digits[i] = (d<<shift) + bits;
+        for (size_t i=0; i<u.size(); i++) {
+            digit_t d = u[i];
+            u[i] = (d<<shift) + bits;
             bits = d>>(sizeof(digit_t)*8-shift);
         }
         if (bits > 0)
-            digits.push_back(bits);
-        return *this;
+            u.push_back(bits);
     }
 
-    nni_t & nni_t::operator>>=(size_t shift) {
-        assert(shift <= sizeof(digit_t)*8);
-        if (shift == 0) 
-            return *this;
+    void shiftright(nni_t &u,size_t shift) {
+        assert(shift < sizeof(digit_t)*8);
+        if (shift == 0) return;
 
         digit_t bits = 0;
-        for (size_t i=digits.size(); i-->0; ) {
-            digit_t d = digits[i];
-            digits[i] = (d>>shift) + bits;
+        for (size_t i=u.size(); i-->0; ) {
+            digit_t d = u[i];
+            u[i] = (d>>shift) + bits;
             bits = d<<(sizeof(digit_t)*8-shift);
         }
-        canonicalize();
-        return *this;
+        canonicalize(u);
     }
 
-    void nni_t::dump() {
-        std::cout << std::hex << std::setw(16) << std::setfill('0');
-        for (nni_t::digit_t d:digits)
-            std::cout << d << " ";
-        std::cout << "\n";
-    }
-
-    int nni_t::top_zeros() const {
+    size_t top_zeros(const nni_t &u) {
         const digit_t HALF = 1UL<<(sizeof(digit_t)*8-1);
-        digit_t x = digits.back();
+        digit_t x = u.back();
         int shift = 0;
         while (x < HALF) {
             x <<= 1;
@@ -731,50 +743,59 @@ namespace crypto {
         return shift;
     }
 
-    std::ostream & operator<<(std::ostream &out,const nni_t &n) {
-        if (n.digits.size() == 0) {
-            out << "0";
-            return out;
-       }
-        
-        nni_t ten(10);
-        std::string digits;
-        nni_t t(n);
-        while (t.digits.size() > 0) {
-            nni_t q,r;
-            divide(t,ten,q,r);
-            t = q;
-            digits = std::string(1,static_cast<char>(r[0]+'0')) + digits;
-        }
-        out << digits;
-        return out; 
+    digit_t digit(const nni_t &n,size_t i) { 
+        return i<n.size() ? n[i] : 0; 
     }
 
-    nni_t operator+(const nni_t &u,const nni_t &v) {
-        size_t m = std::max(u.digits.size(),v.digits.size());
-        nni_t r;
-        nni_t::digit_t carry = 0;
+    std::string format(const nni_t &u) {
+        if (u.size() == 0)
+            return "0";
+        
+        nni_t ten;
+        set(ten,10);
+        std::string digits;
+        nni_t t(u);
+        while (t.size() > 0) {
+            nni_t q,r;
+            divide(q,r,t,ten);
+            t = q;
+            //std::cout << "t=" << t << "\n";
+            //std::cout << "ten=" << ten << "\n";
+            //std::cout << "q=" << q << "\n";
+            //std::cout << "r=" << r << "\n";
+            assert(r.size() < 2);
+            if (r.size())
+                digits = std::string(1,static_cast<char>(r[0]+'0')) + digits;
+            else 
+                digits = "0" + digits;
+        }
+        return digits;
+    }
+
+    void add(nni_t &r,const nni_t &u,const nni_t &v) {
+        size_t m = std::max(u.size(),v.size());
+        r.clear();
+        digit_t carry = 0;
         for (size_t i=0; i<m; i++) {
-            nni_t::digit_t c = u[i] + v[i] + carry;
+            digit_t c = digit(u,i) + digit(v,i) + carry;
             if (carry)
-                carry = c <= u[i];
+                carry = c <= digit(u,i);
             else
-                carry = c < u[i];
-            r.digits.push_back(c);
+                carry = c < digit(v,i);
+            r.push_back(c);
         }
         if (carry)
-            r.digits.push_back(1);
-        return r;
+            r.push_back(1);
     }
 
-    bool operator<(const nni_t &u,const nni_t &v) {
-        if (u.digits.size() < v.digits.size())
+    bool lessor(const nni_t &u,const nni_t &v) {
+        if (u.size() < v.size())
             return true;
             
-        if (u.digits.size() > v.digits.size())
+        if (u.size() > v.size())
             return false;
             
-        for (size_t i=u.digits.size()-1; i-->0; ) {
+        for (size_t i=u.size()-1; i-->0; ) {
             if (u[i] < v[i])
                 return true;
             if (u[i] > v[i])
@@ -783,46 +804,43 @@ namespace crypto {
         return false;
     }
 
-    nni_t operator-(const nni_t &u,const nni_t &v) {
-        assert(!(u<v));
+    void subtract(nni_t &r,const nni_t &u,const nni_t &v) {
+        assert(!lessor(u,v));
 
-        size_t size = std::max(u.digits.size(),v.digits.size());
-        nni_t r;
-        nni_t::digit_t borrow = false;
+        size_t size = std::max(u.size(),v.size());
+        r.clear();
+        digit_t borrow = false;
         for (size_t i=0; i<size; i++) {
-            r.digits.push_back(u[i]-v[i]-borrow);
+            r.push_back(digit(u,i)-digit(v,i)-borrow);
             if (borrow)
-                borrow = u[i] <= v[i];
+                borrow = digit(u,i) <= digit(v,i);
             else
-                borrow = u[i] < v[i];
+                borrow = digit(u,i) < digit(v,i);
         }
-        r.canonicalize();
-        return r;
+        canonicalize(r);
     }
 
-    nni_t operator*(const nni_t &u,const nni_t &v) {
-        nni_t r;
-        r.digits.resize(u.digits.size()+v.digits.size());
-        std::fill(r.digits.begin(),r.digits.end(),0);
+    void multiply(nni_t &r,const nni_t &u,const nni_t &v) {
+        r.resize(u.size()+v.size());
+        std::fill(r.begin(),r.end(),0);
 
-        for (size_t j=0; j<v.digits.size(); j++) {
-            nni_t::long_t z = 0;
-            for (size_t i=0; i<u.digits.size() || z>0; i++) {
+        for (size_t j=0; j<v.size(); j++) {
+            long_t z = 0;
+            for (size_t i=0; i<u.size() || z>0; i++) {
                 z += r[j+i];
-                z += static_cast<nni_t::long_t>(u[i]) * v[j];
-                r.digits[j+i] = static_cast<nni_t::digit_t>(z);
-                z >>= sizeof(nni_t::digit_t)*8;
+                z += static_cast<long_t>(digit(u,i)) * v[j];
+                r[j+i] = static_cast<digit_t>(z);
+                z >>= sizeof(digit_t)*8;
             }
         }
-        r.canonicalize();
-        return r;
+        canonicalize(r);
     }
 
-    nni_t::digit_t find_qhat(nni_t::digit_t un,nni_t::digit_t un1,nni_t::digit_t un2,nni_t::digit_t vn1,nni_t::digit_t vn2)
+    digit_t find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2)
     {
-        const int shift = sizeof(nni_t::digit_t)*8;
-        nni_t::long_t q = ((static_cast<nni_t::long_t>(un)<<shift) + un1) / vn1;
-        nni_t::long_t r = ((static_cast<nni_t::long_t>(un)<<shift) + un1) % vn1;
+        const int shift = sizeof(digit_t)*8;
+        long_t q = ((static_cast<long_t>(un)<<shift) + un1) / vn1;
+        long_t r = ((static_cast<long_t>(un)<<shift) + un1) % vn1;
         if (q>>shift) {
             q--;
             r += vn1;
@@ -834,93 +852,81 @@ namespace crypto {
             x++;
         }
         assert(x < 3);
-        //cout << x << " ";
-        //cout << "u=" << un << "," << un1 << "," << un2 << " v=" << vn1 << "," << vn2 << " q=" << q << endl;
-        return static_cast<nni_t::digit_t>(q);        
+        return static_cast<digit_t>(q);        
     }
 
-    void divide(const nni_t &u,const nni_t &v,nni_t &q,nni_t &r) 
-    {
-        assert(v.digits.size() > 0);
-        
-        if (u.digits.size()==0 || u<v) {
-            q = 0;
+    void divide(nni_t &q,nni_t &r,const nni_t &u,const nni_t &v) {
+        assert(v.size() > 0);
+
+        if (lessor(u,v)) {
+            q.clear(); // q = 0
             r = u;
             return;
         }
         
-        if (v.digits.size()==1 && u.digits.size()==1) {
-            q = u[0] / v[0];
-            r = u[0] % v[0];
+        if (v.size()==1 && u.size()==1) {
+            set(q,u[0] / v[0]);
+            set(r,u[0] % v[0]);
             return;
         }
 
-        if (v.digits.size()==1 && u.digits.size()==2) {
-            nni_t::long_t n = (static_cast<nni_t::long_t>(u[1])<<sizeof(nni_t::digit_t)*8) + u[0];
-            nni_t::long_t a = n / v[0];
-            q = static_cast<nni_t::digit_t>(a);
-            nni_t::digit_t h = static_cast<nni_t::digit_t>(a >> (sizeof(nni_t::digit_t)*8));
+        if (v.size()==1 && u.size()==2) {
+            long_t n = (static_cast<long_t>(u[1])<<(sizeof(digit_t)*8)) + u[0];
+            long_t a = n / v[0];
+            set(q,static_cast<digit_t>(a));
+            digit_t h = static_cast<digit_t>(a >> (sizeof(digit_t)*8));
             if (h)
-                q.digits.push_back(h);
-            r = static_cast<nni_t::digit_t>(n % v[0]);
+                q.push_back(h);
+            set(r,static_cast<digit_t>(n % v[0]));
             return;
         }
 
-        //cout << "div u=" << dump(u) << " v=" << dump(v) << endl;
         nni_t v2(v);
-        int shift = v2.top_zeros();
-        v2 <<= shift;
+        size_t shift = top_zeros(v2);
+        shiftleft(v2,shift);
         r = u;
-        r <<= shift;
-        //cout << "shift=" << shift << endl;
-        //cout << "r=" << dump(r) << endl;
-        //cout << "v2=" << dump(v2) << endl;
+        shiftleft(r,shift);
         
-        int m = static_cast<int>(r.digits.size());
-        int n = static_cast<int>(v2.digits.size());
-        q.digits.resize(m-n+1);
+        int m = static_cast<int>(r.size());
+        int n = static_cast<int>(v2.size());
+        q.resize(m-n+1);
         for (int k = m-n; k>=0; k--) {
-            nni_t::digit_t qhat = find_qhat(r[k+n],r[k+n-1],k+n-2<0?0:r[k+n-2],v2[n-1],n-2<0?0:v2[n-2]);
-            //cout << "qhat=" << qhat << endl;
+            digit_t qhat = find_qhat(digit(r,k+n),digit(r,k+n-1),k+n-2<0?0:digit(r,k+n-2),digit(v2,n-1),n-2<0?0:digit(v2,n-2));
             nni_t t;
-            t.digits.resize(k+1);
-            t.digits[k] = qhat;
+            t.resize(k+1);
+            t[k] = qhat;
             for (int i=0; i<k; i++)
-                t.digits[i]=0;
+                t[i]=0;
                 
-            nni_t w = v2*t; // w = q*v
-            if (r < w) {
-                t.digits[k] = --qhat;
-                w = v2*t;
+            nni_t w;
+            multiply(w,v2,t); // w = q*v
+            if (lessor(r,w)) {
+                t[k] = --qhat;
+                multiply(w,v2,t);
             }
-            //cout << "w=" << dump(w) << endl;
-            t = r-w; // t = u-q*v
-            q.digits[k] = qhat;
-            //cout << "t=" << dump(t) << endl;
+            subtract(t,r,w); // t = u-q*v
+            q[k] = qhat;
             
             r = t;
-            //cout << "r=" << dump(r) << endl;
         }
-        r >>= shift;
-        r.canonicalize();
-        q.canonicalize();
+        shiftright(r,shift);
+        canonicalize(r);
+        canonicalize(q);
     }
 
-    nni_t expmod(const nni_t &a,const nni_t &e,const nni_t &b) {
-        nni_t r(1),a2(a);
+    void expmod(nni_t &r,const nni_t &a,const nni_t &e,const nni_t &b) {
+        nni_t a2(a);
         nni_t t,t2;
-        int shift = sizeof(nni_t::digit_t)*8;
-        for (size_t i=0; i<e.digits.size()*shift; i++) {
-            // cout << i << " a2=" << format(a2) << " r=" << format(r) << " " << !!(e.digits[i/32] & (1U<<(i%32))) << endl;
+        set(r,1);
+        int shift = sizeof(digit_t)*8;
+        for (size_t i=0; i<e.size()*shift; i++) {
             if (e[i/shift] & (1U<<(i%shift))) {
-                t = r*a2;\
-                // cout << " t=" << format(t) << endl;
-                divide(t,b,t2,r);
+                multiply(t,r,a2);
+                divide(t2,r,t,b);
             }
-            t = a2*a2;
-            divide(t,b,t2,a2);
+            multiply(t,a2,a2);
+            divide(t2,a2,t,b);
         }
-        return r;
     }
 
     bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields) 
