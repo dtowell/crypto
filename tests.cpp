@@ -479,14 +479,177 @@ int main()
     }
 
     {
-        // lessor()
+        nni_t a,b,c;
+
+        a.push_back(1UL<<63);
+        a.push_back(1UL<<63);
+        a.push_back(1UL<<63);
+        b.push_back(1UL<<63);
+        b.push_back(1UL<<63);
+        b.push_back(1UL<<63);
+
+        //                    1000  1000  1000
+        //                  x 1000  1000  1000
+        //                  ------------------
+        //               100  0100  0100  0000
+        //        0100  0100  0100  0000
+        //  0100  0100  0100  0000
+        //  ----------------------------------
+        //  0100  1000  1100  1000  0100  0000
+
+        multiply(c,a,b);
+        assert(c.size()==6);
+        assert(c[0] == 0);
+        assert(c[1] == 1UL<<62);
+        assert(c[2] == 1UL<<63);
+        assert(c[3] == 3UL<<62);
+        assert(c[4] == 1UL<<63);
+        assert(c[5] == 1UL<<62);
     }
 
     {
-        // divide()
+        nni_t a,b;
+
+        set(a,1);
+        set(b,1);
+        assert(!lessor(a,b));
+        assert(!lessor(b,a));
+
+        set(a,1);
+        set(b,2);
+        assert(lessor(a,b));
+        assert(!lessor(b,a));
+        
+        a.push_back(1);
+        assert(lessor(b,a));
+        assert(!lessor(a,b));
+
+        b.push_back(1);
+        assert(lessor(a,b));
+        assert(!lessor(b,a));
+
+        b.push_back(1);
+        assert(!lessor(b,a));
+        assert(lessor(a,b));
+
+        set(a,0);
+        set(b,0);
+        assert(!lessor(b,a));
+        assert(!lessor(a,b));
+        set(a,1);
+        assert(lessor(b,a));
+        assert(!lessor(a,b));
     }
 
     {
-        // expmod()
+        nni_t q,r,u,v;
+
+        for (digit_t i=0; i<20; i++)
+            for (digit_t j=1; j<25; j++) {
+                set(u,i);
+                set(v,j);
+                divide(q,r,u,v);
+
+                if (i/j) {
+                    assert(q.size()==1);
+                    assert(q[0]==i/j);
+                }
+                else 
+                    assert(q.size()==0);
+
+                if (i%j) {
+                    assert(r.size()==1);
+                    assert(r[0]==i%j);
+                }
+                else {
+                    //std::cout << u << "\n";
+                    //std::cout << v << "\n";
+                    //std::cout << q << "\n";
+                    //std::cout << r << "\n";
+                    assert(r.size()==0);
+                }
+            }
+
+        for (digit_t i=0; i<20; i++)
+            for (digit_t j=1; j<25; j++) {
+                set(u,0);
+                if (i) {
+                    u.push_back(0);
+                    u.push_back(i);
+                }
+                set(v,0);
+                if (j) {
+                    v.push_back(0);
+                    v.push_back(j);
+                }
+                divide(q,r,u,v);
+
+                if (i/j) {
+                    assert(q.size()==1);
+                    assert(q[0]==i/j);
+                }
+                else 
+                    assert(q.size()==0);
+
+                if (i%j) {
+                    assert(r.size()==2);
+                    assert(r[0]==0);
+                    assert(r[1]==i%j);
+                }
+                else {
+                    assert(r.size()==0);
+                }
+            }
+
+        for (digit_t i=0; i<20; i++)
+            for (digit_t j=1; j<25; j++) {
+                set(u,0);
+                if (i) {
+                    u.push_back(0);
+                    u.push_back(0);
+                    u.push_back(i);
+                }
+                set(v,0);
+                if (j) {
+                    v.push_back(0);
+                    v.push_back(0);
+                    v.push_back(j);
+                }
+                divide(q,r,u,v);
+
+                if (i/j) {
+                    assert(q.size()==1);
+                    assert(q[0]==i/j);
+                }
+                else 
+                    assert(q.size()==0);
+
+                if (i%j) {
+                    assert(r.size()==3);
+                    assert(r[0]==0);
+                    assert(r[1]==0);
+                    assert(r[2]==i%j);
+                }
+                else {
+                    assert(r.size()==0);
+                }
+            }
+
+    }
+
+    {
+        nni_t r,a,e,b;
+        set(a,2);
+        set(e,64);
+        set(b,"999999999999999999999999999999999999999");
+        expmod(r,a,e,b);
+        assert(r.size()==2);
+        assert(r[0]==0);
+        assert(r[1]==1);
+
+        set(b,3);
+        expmod(r,a,e,b);
+        assert(r.size()==1);
+        assert(r[0]==1);
     }
 }

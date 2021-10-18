@@ -795,7 +795,7 @@ namespace crypto {
         if (u.size() > v.size())
             return false;
             
-        for (size_t i=u.size()-1; i-->0; ) {
+        for (size_t i=u.size(); i-->0; ) {
             if (u[i] < v[i])
                 return true;
             if (u[i] > v[i])
@@ -920,7 +920,7 @@ namespace crypto {
         set(r,1);
         int shift = sizeof(digit_t)*8;
         for (size_t i=0; i<e.size()*shift; i++) {
-            if (e[i/shift] & (1U<<(i%shift))) {
+            if (e[i/shift] & (1UL<<(i%shift))) {
                 multiply(t,r,a2);
                 divide(t2,r,t,b);
             }
