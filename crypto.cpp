@@ -788,7 +788,7 @@ namespace crypto {
             r.push_back(1);
     }
 
-    bool lessor(const nni_t &u,const nni_t &v) {
+    bool lesser(const nni_t &u,const nni_t &v) {
         if (u.size() < v.size())
             return true;
             
@@ -805,7 +805,7 @@ namespace crypto {
     }
 
     void subtract(nni_t &r,const nni_t &u,const nni_t &v) {
-        assert(!lessor(u,v));
+        assert(!lesser(u,v));
 
         size_t size = std::max(u.size(),v.size());
         r.clear();
@@ -858,7 +858,7 @@ namespace crypto {
     void divide(nni_t &q,nni_t &r,const nni_t &u,const nni_t &v) {
         assert(v.size() > 0);
 
-        if (lessor(u,v)) {
+        if (lesser(u,v)) {
             q.clear(); // q = 0
             r = u;
             return;
@@ -900,7 +900,7 @@ namespace crypto {
                 
             nni_t w;
             multiply(w,v2,t); // w = q*v
-            if (lessor(r,w)) {
+            if (lesser(r,w)) {
                 t[k] = --qhat;
                 multiply(w,v2,t);
             }

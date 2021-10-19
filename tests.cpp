@@ -512,33 +512,33 @@ int main()
 
         set(a,1);
         set(b,1);
-        assert(!lessor(a,b));
-        assert(!lessor(b,a));
+        assert(!lesser(a,b));
+        assert(!lesser(b,a));
 
         set(a,1);
         set(b,2);
-        assert(lessor(a,b));
-        assert(!lessor(b,a));
+        assert(lesser(a,b));
+        assert(!lesser(b,a));
         
         a.push_back(1);
-        assert(lessor(b,a));
-        assert(!lessor(a,b));
+        assert(lesser(b,a));
+        assert(!lesser(a,b));
 
         b.push_back(1);
-        assert(lessor(a,b));
-        assert(!lessor(b,a));
+        assert(lesser(a,b));
+        assert(!lesser(b,a));
 
         b.push_back(1);
-        assert(!lessor(b,a));
-        assert(lessor(a,b));
+        assert(!lesser(b,a));
+        assert(lesser(a,b));
 
         set(a,0);
         set(b,0);
-        assert(!lessor(b,a));
-        assert(!lessor(a,b));
+        assert(!lesser(b,a));
+        assert(!lesser(a,b));
         set(a,1);
-        assert(lessor(b,a));
-        assert(!lessor(a,b));
+        assert(lesser(b,a));
+        assert(!lesser(a,b));
     }
 
     {

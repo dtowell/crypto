@@ -68,7 +68,7 @@ namespace crypto {
     void multiply(nni_t &r,const nni_t &u,const nni_t &v);
     void divide(nni_t &q,nni_t &r,const nni_t &u,const nni_t &v);
     void expmod(nni_t &r,const nni_t &a,const nni_t &e,const nni_t &b);
-    bool lessor(const nni_t &u,const nni_t &v);
+    bool lesser(const nni_t &u,const nni_t &v);
 
     digit_t digit(const nni_t &n,size_t i);
     std::string format(const nni_t &u);
