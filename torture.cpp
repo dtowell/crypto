@@ -1,40 +1,42 @@
-// Big Non-negative Integers
-
 #include <iostream>
-#include <sstream>
 #include <cassert>
-#include <cstdlib>
+#include <random>
+#include "crypto.h"
 using namespace std;
-#include "bnni.h"
+using namespace crypto;
 
-
-uint bigrand() {
-    uint r;
-    while (!(r=rand()));
-    return (r<<16)+rand();
+void set_n_rand_digits(nni_t &n,size_t digits)
+{
+    buffer_t buffer;
+    rand_rdrand(digits*sizeof(digit_t),buffer);
+    n.resize(digits);
+    std::copy(buffer.begin(),buffer.end(),reinterpret_cast<uint8_t *>(&n[0]));
 }
 
-int test()
-{
-    BNNI a,b,c,d,e,f;
+std::random_device rd;
 
-    set(a,bigrand());
-    set(b,bigrand());
-    set(c,bigrand());
-    set(d,bigrand());
-    
+void test(int min_digits,int max_digits)
+{
+    nni_t a,b,c,d,e,f;
+    std::uniform_int_distribution<int> roll(min_digits,max_digits);
+
+    set_n_rand_digits(a,roll(rd));
+    set_n_rand_digits(b,roll(rd));
+    set_n_rand_digits(c,roll(rd));
+    set_n_rand_digits(d,roll(rd));
+
     // test add & subtract
     set(e,0);
-    add(e,e,f);
-    add(a,f,e);
-    add(b,e,f);
-    add(c,f,e);
-    add(d,e,f);
-    subtract(f,a,e);
-    subtract(e,b,f);
-    subtract(f,c,e);
-    subtract(e,d,f);
-    if (f.size != 0) {
+    add(f,e,e);
+    add(e,a,f);
+    add(f,b,e);
+    add(e,c,f);
+    add(f,d,e);
+    subtract(e,f,a);
+    subtract(f,e,b);
+    subtract(e,f,c);
+    subtract(f,e,d);
+    if (f.size() != 0) {
         cout << "a=" << format(a);
         cout << " b=" << format(b);
         cout << " c=" << format(c);
@@ -42,15 +44,15 @@ int test()
         cout << " a+b+c+d-a-b-c-d=" << format(f) <<endl<<endl;        
     }
     
-    multiply(a,b,e);
-    multiply(e,c,f);
-    multiply(f,d,e);
-    int x = (rand() % 1000)+1;
-    BNNI r;
+    multiply(e,a,b);
+    multiply(f,e,c);
+    multiply(e,f,d);
+    digit_t x = std::uniform_int_distribution<int>(1,1000)(rd);
+    nni_t r;
     set(r,x);
-    add(e,r,f);
-    divide(f,a,e,r);
-    if (r.size!=1 || r.digits[0] != x) {
+    add(f,e,r);
+    divide(e,r,f,a);
+    if (r.size()!=1 || r[0] != x) {
         cout << "a=" << format(a);
         cout << " b=" << format(b);
         cout << " c=" << format(c);
@@ -59,11 +61,11 @@ int test()
         cout << "a*b*c*d+x=" << format(f) <<endl;
         cout << "(a*b*c*d+x)/a=" << format(e) <<endl;
         cout << "a*b*c*d+x mod a=" << format(r) <<endl<<endl;
-    }     
+    }
 
-    add(e,r,f);
-    divide(f,b,e,r);
-    if (r.size!=1 || r.digits[0] != x) {
+    add(f,e,r);
+    divide(e,r,f,b);
+    if (r.size()!=1 || r[0] != x) {
         cout << "a=" << format(a);
         cout << " b=" << format(b);
         cout << " c=" << format(c);
@@ -72,9 +74,9 @@ int test()
         cout << " (a*b*c*d+x)/a mod b=" << format(r) <<endl<<endl;
     }     
 
-    add(e,r,f);
-    divide(f,c,e,r);
-    if (r.size!=1 || r.digits[0] != x) {
+    add(f,e,r);
+    divide(e,r,f,c);
+    if (r.size()!=1 || r[0] != x) {
         cout << "a=" << format(a);
         cout << " b=" << format(b);
         cout << " c=" << format(c);
@@ -83,9 +85,9 @@ int test()
         cout << " ((a*b*c*d+x)/a+x)/b mod c=" << format(r) <<endl<<endl;
     }     
 
-    add(e,r,f);
-    divide(f,d,e,r);
-    if (r.size!=1 || r.digits[0] != x) {
+    add(f,e,r);
+    divide(e,r,f,d);
+    if (r.size()!=1 || r[0] != x) {
         cout << "a=" << format(a);
         cout << " b=" << format(b);
         cout << " c=" << format(c);
@@ -93,7 +95,7 @@ int test()
         cout << " x=" << x;
         cout << " (((a*b*c*d+x)/a+x)/b+x/c) mod d=" << format(r) <<endl<<endl;
     }     
-    if (e.size!=1 || e.digits[0] != 1) {
+    if (e.size()!=1 || e[0] != 1) {
         cout << "a=" << format(a);
         cout << " b=" << format(b);
         cout << " c=" << format(c);
@@ -103,21 +105,20 @@ int test()
     }     
 }
 
-int main()
-{
-    /*
-    BNNI a,b,c,d;
-    set(a,"11121414247859027596774433882112868");
-    set(b,"3091202048");
-    divide(a,b,c,d);
-    cout << a.size << endl;
-    cout << format(d) << endl;
-    cout << format(c) << endl;
-    cout << "3597763612719703916544000" << endl;
-    */
-    
-    srand(time(NULL));
+int main(int argc,char *argv[])
+{   
+    if (argc < 2) {
+        cout << "usage: " << argv[0] << " <min-digits> [<max-digits>]\n";
+        exit(1);
+    }
  
-    while (true)
-        test();
+    int min = stoi(argv[1]);
+    int max = argc>2 ? stoi(argv[2]) : min;
+
+    cout << "testing " << (min*sizeof(digit_t)*8-7) << ".." << max*sizeof(digit_t)*8 << " bits\n";
+
+    while (true) {
+        test(min,max);
+        cout << "." << flush;
+    }
 }

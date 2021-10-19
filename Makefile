@@ -26,7 +26,7 @@ sha: sha.cpp crypto.o
 
 tests: tests.cpp crypto.o
 
-test_all: test_crypto test_aes
+torture: torture.cpp crypto.o
 
 test_crypto: tests
 	valgrind -q ./tests
