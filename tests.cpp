@@ -271,7 +271,8 @@ int main()
         assert(key.p != key.q);
         auto n = key.p*key.q;
         assert(!is_prime(n));
-        
+        //std::cout << std::hex << key.p << " " << std::hex << key.q << "\n";
+
         assert(pow_mod(pow_mod(0,key.e,n),key.d,n)==0);
         assert(pow_mod(pow_mod(1,key.e,n),key.d,n)==1);
         assert(pow_mod(pow_mod(2,key.e,n),key.d,n)==2);

@@ -650,14 +650,16 @@ namespace crypto {
             buffer_t bytes;
             if (!rand_rdrand(4,bytes))
                 return false;
-            key.p = next_prime(*reinterpret_cast<uint32_t *>(&bytes[0]) & 0xFFFFF);
+            bytes[3] |= 3<<6;
+            key.p = next_prime(*reinterpret_cast<uint32_t *>(&bytes[0]));
         }
         key.q = 1;
         while (key.q % key.e == 1) {
             buffer_t bytes;
             if (!rand_rdrand(4,bytes))
                 return false;
-            key.q = next_prime(*reinterpret_cast<uint32_t *>(&bytes[0]) & 0xFFFFF);
+            bytes[3] |= 3<<6;
+            key.q = next_prime(*reinterpret_cast<uint32_t *>(&bytes[0]));
         }
 
         key.d = inv_mod(key.e,(key.p-1)*(key.q-1));
