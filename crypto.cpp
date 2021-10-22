@@ -25,6 +25,11 @@ std::ostream & operator<<(std::ostream &out,const crypto::nni_t &u) {
     return out;
 }
 
+std::ostream & operator<<(std::ostream &out,const crypto::NNI &u) {
+    out << u.format();
+    return out;
+}
+
 namespace crypto {
 
     bool read_file(std::string filename,buffer_t &buffer) {
@@ -683,6 +688,295 @@ namespace crypto {
         plain = pow_mod(encoded,key.d,key.p*key.q);
         return true;
     }
+
+
+    NNI::NNI(digit_t n) 
+    {
+        if (n)
+            digits.push_back(n);
+    }
+
+    NNI::NNI(const std::string &str)
+    {
+        NNI ten(10);
+        NNI r;
+        for (char c:str) {
+            NNI digit(c-'0');
+            r = r*ten+digit;
+        }
+        digits = r.digits;
+    }
+
+    void NNI::print() const
+    {
+        for (auto d:digits)
+            std::cout << std::hex << std::setw(16) << std::setfill('0') << d << " ";
+    }
+
+    NNI & NNI::operator<<=(size_t shift)
+    {
+        assert(shift < sizeof(digit_t)*8);
+        if (shift == 0) return *this;
+
+        digit_t bits = 0;
+        for (size_t i=0; i<digits.size(); i++) {
+            digit_t d = digits[i];
+            digits[i] = (d<<shift) + bits;
+            bits = d>>(sizeof(digit_t)*8-shift);
+        }
+        if (bits > 0)
+            digits.push_back(bits);
+        return *this;
+    }
+
+    NNI & NNI::operator>>=(size_t shift)
+    {
+        assert(shift < sizeof(digit_t)*8);
+        if (shift == 0) return *this;
+
+        digit_t bits = 0;
+        for (size_t i=digits.size(); i-->0; ) {
+            digit_t d = digits[i];
+            digits[i] = (d>>shift) + bits;
+            bits = d<<(sizeof(digit_t)*8-shift);
+        }
+        canonicalize();
+        return *this;
+    }
+
+    const digit_t NNI::zero = 0;
+    digit_t NNI::woop_base = 0;
+
+    const digit_t & NNI::operator[](size_t i) const
+    {
+        return i<digits.size() ? digits[i] : zero; 
+    }
+
+    digit_t & NNI::operator[](size_t i)
+    {
+        assert(i<digits.size());
+        return digits[i]; 
+    }
+
+    size_t NNI::top_zeros()
+    {
+        const digit_t HALF = 1UL<<(sizeof(digit_t)*8-1);
+        digit_t x = digits.back();
+        int shift = 0;
+        while (x < HALF) {
+            x <<= 1;
+            shift++;
+        }
+        return shift;
+    }
+
+    void NNI::canonicalize() 
+    {
+        while (digits.size() && digits.back()==0)
+            digits.pop_back();
+    }
+
+    NNI operator+(const NNI &u,const NNI &v) 
+    {
+        NNI r;
+        size_t m = std::max(u.digits.size(),v.digits.size());
+        digit_t carry = 0;
+        for (size_t i=0; i<m; i++) {
+            digit_t c = u[i] + v[i] + carry;
+            if (carry)
+                carry = c <= u[i];
+            else
+                carry = c < v[i];
+            r.digits.push_back(c);
+        }
+        if (carry)
+            r.digits.push_back(1);
+        return r;
+    }
+
+    NNI operator-(const NNI &u,const NNI &v) 
+    {
+        assert(!(u<v));
+        NNI r;
+        size_t size = std::max(u.digits.size(),v.digits.size());
+        digit_t borrow = false;
+        for (size_t i=0; i<size; i++) {
+            r.digits.push_back(u[i]-v[i]-borrow);
+            if (borrow)
+                borrow = u[i] <= v[i];
+            else
+                borrow = u[i] < v[i];
+        }
+        r.canonicalize();
+        return r;
+    }
+
+    NNI operator*(const NNI &u,const NNI &v)
+    {
+        NNI r;
+        r.digits.resize(u.digits.size()+v.digits.size());
+        std::fill(r.digits.begin(),r.digits.end(),0);
+
+        for (size_t j=0; j<v.digits.size(); j++) {
+            long_t z = 0;
+            for (size_t i=0; i<u.digits.size() || z>0; i++) {
+                z += r[j+i];
+                z += static_cast<long_t>(u[i]) * v[j];
+                r[j+i] = static_cast<digit_t>(z);
+                z >>= sizeof(digit_t)*8;
+            }
+        }
+        r.canonicalize();
+        return r;
+    }
+
+    void divide(NNI &q,NNI &r,const NNI &u,const NNI &v)
+    {
+        assert(v.digits.size() > 0);
+
+        if (u < v) {
+            q.digits.clear(); // q = 0
+            r = u;
+            return;
+        }
+        
+        if (v.digits.size()==1 && u.digits.size()==1) {
+            q = NNI(u[0] / v[0]);
+            r = NNI(u[0] % v[0]);
+            return;
+        }
+
+        if (v.digits.size()==1 && u.digits.size()==2) {
+            long_t n = (static_cast<long_t>(u[1])<<(sizeof(digit_t)*8)) + u[0];
+            long_t a = n / v[0];
+            q = NNI(static_cast<digit_t>(a));
+            digit_t h = static_cast<digit_t>(a >> (sizeof(digit_t)*8));
+            if (h)
+                q.digits.push_back(h);
+            r = NNI(static_cast<digit_t>(n % v[0]));
+            return;
+        }
+
+        NNI v2(v);
+        size_t shift = v2.top_zeros();
+        v2 <<= shift;
+        r = u;
+        r <<= shift;
+        
+        int m = static_cast<int>(r.digits.size());
+        int n = static_cast<int>(v2.digits.size());
+        q.digits.resize(m-n+1);
+        for (int k = m-n; k>=0; k--) {
+            digit_t qhat = NNI::find_qhat(r[k+n],r[k+n-1],k+n-2<0?0:r[k+n-2],v2[n-1],n-2<0?0:v2[n-2]);
+            NNI t;
+            t.digits.resize(k+1);
+            t[k] = qhat;
+            std::fill(t.digits.begin(),t.digits.end()-1,0);
+                
+            NNI w = v2 * t; // w = q*v
+            if (r < w) {
+                t[k] = --qhat;
+                w = v2 * t;
+            }
+            t = r - w; // t = u-q*v
+            q[k] = qhat;
+            
+            r = t;
+        }
+        r >>= shift;
+        r.canonicalize();
+        q.canonicalize();
+    }
+
+    digit_t NNI::find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2)
+    {
+        const int shift = sizeof(digit_t)*8;
+        long_t q = ((static_cast<long_t>(un)<<shift) + un1) / vn1;
+        long_t r = ((static_cast<long_t>(un)<<shift) + un1) % vn1;
+        if (q>>shift) {
+            q--;
+            r += vn1;
+        }
+        int x=0;
+        while ((r>>shift)==0 && q*vn2 > (r<<shift)+un2) {
+            q--;
+            r += vn1;
+            x++;
+        }
+        assert(x < 3);
+        return static_cast<digit_t>(q);        
+    }
+
+    std::string NNI::format() const 
+    {
+        if (digits.size() == 0)
+            return "0";
+        
+        NNI ten(10);
+        NNI t(*this);
+        std::string s;
+        while (t.digits.size() > 0) {
+            NNI q,r;
+            divide(q,r,t,ten);
+            t = q;
+            assert(r.digits.size() < 2);
+            if (r.digits.size())
+                s = std::string(1,static_cast<char>(r[0]+'0')) + s;
+            else 
+                s = "0" + s;
+        }
+        return s;
+    }
+
+
+    NNI operator/(const NNI &u,const NNI &v)
+    {
+        NNI q,r;
+        divide(q,r,u,v);
+        return q;
+    }
+
+    NNI operator%(const NNI &u,const NNI &v)
+    {
+        NNI q,r;
+        divide(q,r,u,v);
+        return r;
+    }
+
+    NNI expmod(const NNI &a,const NNI &e,const NNI &b) 
+    {
+        NNI r(1);
+        NNI a2(a);
+        NNI t,t2;
+        int shift = sizeof(digit_t)*8;
+        for (size_t i=0; i<e.digits.size()*shift; i++) {
+            if (e[i/shift] & (1UL<<(i%shift))) {
+                t = r * a2;
+                divide(t2,r,t,b);
+            }
+            t = a2 * a2;
+            divide(t2,a2,t,b);
+        }
+        return r;
+    }
+
+    bool operator<(const NNI &u,const NNI &v) 
+    {
+        if (u.digits.size() < v.digits.size())
+            return true;
+            
+        if (u.digits.size() > v.digits.size())
+            return false;
+            
+        for (size_t i=u.digits.size(); i-->0; ) {
+            if (u[i] < v[i])
+                return true;
+            if (u[i] > v[i])
+                return false;
+        }
+        return false;
+    }
+
 
 
     void set(nni_t &r, digit_t n) {

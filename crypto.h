@@ -55,6 +55,43 @@ namespace crypto {
     bool rsa_encode(uint64_t plain,const rsa_public_t &pub,uint64_t &encoded);
     bool rsa_decode(uint64_t encoded,const rsa_private_t &key,uint64_t &plain);
 
+    class NNI {
+    public:
+        using digit_t = uint64_t;
+        using long_t = uint128_t;
+        
+        NNI() { }
+        NNI(digit_t n);
+        NNI(const std::string &str);
+
+        void print() const;
+        std::string format() const;
+
+        NNI & operator<<=(size_t n);
+        NNI & operator>>=(size_t n);
+        const digit_t & operator[](size_t i) const;
+
+        friend NNI operator+(const NNI &u,const NNI &v);
+        friend NNI operator-(const NNI &u,const NNI &v);
+        friend NNI operator*(const NNI &u,const NNI &v);
+        friend NNI operator/(const NNI &u,const NNI &v);
+        friend NNI operator%(const NNI &u,const NNI &v);
+        friend void divide(NNI &q,NNI &r,const NNI &u,const NNI &v);
+        friend NNI expmod(const NNI &a,const NNI &e,const NNI &b);
+        friend bool operator<(const NNI &u,const NNI &v);
+
+        static digit_t woop_base;
+    private:
+        digit_t & operator[](size_t i);
+        void canonicalize();
+        size_t top_zeros();
+        static digit_t find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2);
+
+        std::vector<digit_t> digits;
+        digit_t woop;
+        static const digit_t zero;
+    };
+
     using digit_t = uint64_t;
     using long_t = uint128_t;
     using nni_t = std::vector<digit_t>;
@@ -90,5 +127,6 @@ namespace crypto {
 std::ostream & operator<<(std::ostream &out,const crypto::buffer_t &buffer);
 std::ostream & operator<<(std::ostream &out,const crypto::block_t &block);
 std::ostream & operator<<(std::ostream &out,const crypto::nni_t &n);
+std::ostream & operator<<(std::ostream &out,const crypto::NNI &n);
 
 #endif
