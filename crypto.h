@@ -66,10 +66,13 @@ namespace crypto {
 
         void print() const;
         std::string format() const;
-
-        NNI & operator<<=(size_t n);
-        NNI & operator>>=(size_t n);
-        const digit_t & operator[](size_t i) const;
+        int size() const { return static_cast<int>(digits.size()); }
+        digit_t digit(int i) const { 
+            return (i>=0 && i<size()) ? digits.at(i) : 0;
+        }
+        
+        NNI & operator<<=(int n);
+        NNI & operator>>=(int n);
 
         friend NNI operator+(const NNI &u,const NNI &v);
         friend NNI operator-(const NNI &u,const NNI &v);
@@ -79,19 +82,21 @@ namespace crypto {
         friend void divide(NNI &q,NNI &r,const NNI &u,const NNI &v);
         friend NNI expmod(const NNI &a,const NNI &e,const NNI &b);
         friend bool operator<(const NNI &u,const NNI &v);
+        friend bool operator==(const NNI &u,const NNI &v);
 
         static digit_t woop_base;
     private:
-        digit_t & operator[](size_t i);
+        digit_t & operator[](int i) { return digits.at(static_cast<size_t>(i)); }
+
         void canonicalize();
-        size_t top_zeros();
+        int top_zeros();
         static digit_t find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2);
 
         std::vector<digit_t> digits;
         digit_t woop;
-        static const digit_t zero;
     };
 
+#if 0
     using digit_t = uint64_t;
     using long_t = uint128_t;
     using nni_t = std::vector<digit_t>;
@@ -111,6 +116,7 @@ namespace crypto {
     std::string format(const nni_t &u);
     size_t top_zeros(const nni_t &u);
     void canonicalize(const nni_t &u);
+#endif
 
     bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields);
     /*  version           Version,

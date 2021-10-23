@@ -689,6 +689,7 @@ namespace crypto {
         return true;
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////////////
 
     NNI::NNI(digit_t n) 
     {
@@ -711,15 +712,16 @@ namespace crypto {
     {
         for (auto d:digits)
             std::cout << std::hex << std::setw(16) << std::setfill('0') << d << " ";
+        std::cout << std::endl;
     }
 
-    NNI & NNI::operator<<=(size_t shift)
+    NNI & NNI::operator<<=(int shift)
     {
-        assert(shift < sizeof(digit_t)*8);
+        assert(shift < static_cast<int>(sizeof(digit_t)*8));
         if (shift == 0) return *this;
 
         digit_t bits = 0;
-        for (size_t i=0; i<digits.size(); i++) {
+        for (int i=0; i<size(); i++) {
             digit_t d = digits[i];
             digits[i] = (d<<shift) + bits;
             bits = d>>(sizeof(digit_t)*8-shift);
@@ -729,13 +731,13 @@ namespace crypto {
         return *this;
     }
 
-    NNI & NNI::operator>>=(size_t shift)
+    NNI & NNI::operator>>=(int shift)
     {
-        assert(shift < sizeof(digit_t)*8);
+        assert(shift < static_cast<int>(sizeof(digit_t)*8));
         if (shift == 0) return *this;
 
         digit_t bits = 0;
-        for (size_t i=digits.size(); i-->0; ) {
+        for (int i=size(); i-->0; ) {
             digit_t d = digits[i];
             digits[i] = (d>>shift) + bits;
             bits = d<<(sizeof(digit_t)*8-shift);
@@ -744,21 +746,9 @@ namespace crypto {
         return *this;
     }
 
-    const digit_t NNI::zero = 0;
     digit_t NNI::woop_base = 0;
 
-    const digit_t & NNI::operator[](size_t i) const
-    {
-        return i<digits.size() ? digits[i] : zero; 
-    }
-
-    digit_t & NNI::operator[](size_t i)
-    {
-        assert(i<digits.size());
-        return digits[i]; 
-    }
-
-    size_t NNI::top_zeros()
+    int NNI::top_zeros()
     {
         const digit_t HALF = 1UL<<(sizeof(digit_t)*8-1);
         digit_t x = digits.back();
@@ -772,21 +762,21 @@ namespace crypto {
 
     void NNI::canonicalize() 
     {
-        while (digits.size() && digits.back()==0)
+        while (size() && digits.back()==0)
             digits.pop_back();
     }
 
     NNI operator+(const NNI &u,const NNI &v) 
     {
         NNI r;
-        size_t m = std::max(u.digits.size(),v.digits.size());
+        int m = std::max(u.size(),v.size());
         digit_t carry = 0;
-        for (size_t i=0; i<m; i++) {
-            digit_t c = u[i] + v[i] + carry;
+        for (int i=0; i<m; i++) {
+            digit_t c = u.digit(i) + v.digit(i) + carry;
             if (carry)
-                carry = c <= u[i];
+                carry = c <= u.digit(i);
             else
-                carry = c < v[i];
+                carry = c < v.digit(i);
             r.digits.push_back(c);
         }
         if (carry)
@@ -798,14 +788,14 @@ namespace crypto {
     {
         assert(!(u<v));
         NNI r;
-        size_t size = std::max(u.digits.size(),v.digits.size());
+        int size = std::max(u.size(),v.size());
         digit_t borrow = false;
-        for (size_t i=0; i<size; i++) {
-            r.digits.push_back(u[i]-v[i]-borrow);
+        for (int i=0; i<size; i++) {
+            r.digits.push_back(u.digit(i)-v.digit(i)-borrow);
             if (borrow)
-                borrow = u[i] <= v[i];
+                borrow = u.digit(i) <= v.digit(i);
             else
-                borrow = u[i] < v[i];
+                borrow = u.digit(i) < v.digit(i);
         }
         r.canonicalize();
         return r;
@@ -817,11 +807,11 @@ namespace crypto {
         r.digits.resize(u.digits.size()+v.digits.size());
         std::fill(r.digits.begin(),r.digits.end(),0);
 
-        for (size_t j=0; j<v.digits.size(); j++) {
+        for (int j=0; j<v.size(); j++) {
             long_t z = 0;
-            for (size_t i=0; i<u.digits.size() || z>0; i++) {
+            for (int i=0; i<u.size() || z>0; i++) {
                 z += r[j+i];
-                z += static_cast<long_t>(u[i]) * v[j];
+                z += static_cast<long_t>(u.digit(i)) * v.digit(j);
                 r[j+i] = static_cast<digit_t>(z);
                 z >>= sizeof(digit_t)*8;
             }
@@ -832,7 +822,7 @@ namespace crypto {
 
     void divide(NNI &q,NNI &r,const NNI &u,const NNI &v)
     {
-        assert(v.digits.size() > 0);
+        assert(v.size() > 0);
 
         if (u < v) {
             q.digits.clear(); // q = 0
@@ -840,34 +830,34 @@ namespace crypto {
             return;
         }
         
-        if (v.digits.size()==1 && u.digits.size()==1) {
-            q = NNI(u[0] / v[0]);
-            r = NNI(u[0] % v[0]);
+        if (v.size()==1 && u.size()==1) {
+            q = NNI(u.digit(0) / v.digit(0));
+            r = NNI(u.digit(0) % v.digit(0));
             return;
         }
 
-        if (v.digits.size()==1 && u.digits.size()==2) {
-            long_t n = (static_cast<long_t>(u[1])<<(sizeof(digit_t)*8)) + u[0];
-            long_t a = n / v[0];
+        if (v.size()==1 && u.size()==2) {
+            long_t n = (static_cast<long_t>(u.digit(1))<<(sizeof(digit_t)*8)) + u.digit(0);
+            long_t a = n / v.digit(0);
             q = NNI(static_cast<digit_t>(a));
             digit_t h = static_cast<digit_t>(a >> (sizeof(digit_t)*8));
             if (h)
                 q.digits.push_back(h);
-            r = NNI(static_cast<digit_t>(n % v[0]));
+            r = NNI(static_cast<digit_t>(n % v.digit(0)));
             return;
         }
 
         NNI v2(v);
-        size_t shift = v2.top_zeros();
+        int shift = v2.top_zeros();
         v2 <<= shift;
         r = u;
         r <<= shift;
         
-        int m = static_cast<int>(r.digits.size());
-        int n = static_cast<int>(v2.digits.size());
+        int m = r.size();
+        int n = v2.size();
         q.digits.resize(m-n+1);
         for (int k = m-n; k>=0; k--) {
-            digit_t qhat = NNI::find_qhat(r[k+n],r[k+n-1],k+n-2<0?0:r[k+n-2],v2[n-1],n-2<0?0:v2[n-2]);
+            digit_t qhat = NNI::find_qhat(r.digit(k+n),r.digit(k+n-1),r.digit(k+n-2),v2.digit(n-1),v2.digit(n-2));
             NNI t;
             t.digits.resize(k+1);
             t[k] = qhat;
@@ -915,19 +905,18 @@ namespace crypto {
         NNI ten(10);
         NNI t(*this);
         std::string s;
-        while (t.digits.size() > 0) {
+        while (t.size() > 0) {
             NNI q,r;
             divide(q,r,t,ten);
             t = q;
-            assert(r.digits.size() < 2);
-            if (r.digits.size())
+            assert(r.size() < 2);
+            if (r.size())
                 s = std::string(1,static_cast<char>(r[0]+'0')) + s;
             else 
                 s = "0" + s;
         }
         return s;
     }
-
 
     NNI operator/(const NNI &u,const NNI &v)
     {
@@ -949,8 +938,8 @@ namespace crypto {
         NNI a2(a);
         NNI t,t2;
         int shift = sizeof(digit_t)*8;
-        for (size_t i=0; i<e.digits.size()*shift; i++) {
-            if (e[i/shift] & (1UL<<(i%shift))) {
+        for (int i=0; i<e.size()*shift; i++) {
+            if (e.digit(i/shift) & (1UL<<(i%shift))) {
                 t = r * a2;
                 divide(t2,r,t,b);
             }
@@ -962,22 +951,29 @@ namespace crypto {
 
     bool operator<(const NNI &u,const NNI &v) 
     {
-        if (u.digits.size() < v.digits.size())
+        if (u.size() < v.size())
             return true;
             
-        if (u.digits.size() > v.digits.size())
+        if (u.size() > v.size())
             return false;
             
-        for (size_t i=u.digits.size(); i-->0; ) {
-            if (u[i] < v[i])
+        for (int i=u.size(); i-->0; ) {
+            if (u.digit(i) < v.digit(i))
                 return true;
-            if (u[i] > v[i])
+            if (u.digit(i) > v.digit(i))
                 return false;
         }
         return false;
     }
 
+    bool operator==(const NNI &u,const NNI &v) 
+    {
+        return u.digits==v.digits;
+    }
 
+    /////////////////////////////////////////////////////////////////////////////////////////////
+
+#if 0
 
     void set(nni_t &r, digit_t n) {
         r.clear();
@@ -1250,5 +1246,7 @@ namespace crypto {
         }
         return true;
     }
+
+#endif
 
 };
