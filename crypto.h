@@ -91,17 +91,33 @@ namespace crypto {
         int top_zeros();
         static digit_t find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2);
 
-        std::vector<digit_t> digits;
+        std::vector<digit_t> digits;        
     };
 
-    class VNNI : public NNI {
+    class VNNI {
+    public:
+        using digit_t = NNI::digit_t;
+        using long_t = NNI::long_t;
+        static digit_t woop_base;
+
+    private:
+        VNNI(const NNI &n,digit_t w) : nni(n), woop(w) { }
+        digit_t compute_woop() const;
+
+        NNI nni;
+        digit_t woop;
+
     public:
         VNNI() : woop(0) { }
-        VNNI(digit_t n) : NNI(n), woop(n % woop_base) { }
-        VNNI(const std::string &str) : NNI(str) { }
+        VNNI(digit_t n) : nni(n), woop(n % woop_base) { }
+        VNNI(const std::string &str) : nni(str) { woop=compute_woop(); }
         ~VNNI() { verify(); }
 
         void print() const;
+        std::string format() const { return nni.format(); };
+        int size() const { return nni.size(); }
+        digit_t digit(int i) const { return nni.digit(i); }
+        void verify() const;
 
         VNNI & operator<<=(int n);
         VNNI & operator>>=(int n);
@@ -113,12 +129,8 @@ namespace crypto {
         friend VNNI operator%(const VNNI &u,const VNNI &v);
         friend void divide(VNNI &q,VNNI &r,const VNNI &u,const VNNI &v);
         friend VNNI expmod(const VNNI &a,const VNNI &e,const VNNI &b);
-
-        void verify() const;
-        static digit_t woop_base;
-    private:
-        digit_t calculate_woop() const;
-        digit_t woop;
+        friend bool operator<(const VNNI &u,const VNNI &v) { return u.nni<v.nni; }
+        friend bool operator==(const VNNI &u,const VNNI &v) { return u.nni==v.nni; }
     };
 
 #if 0

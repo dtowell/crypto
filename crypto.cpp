@@ -975,30 +975,28 @@ namespace crypto {
 
     void VNNI::verify() const
     {
-        digit_t w = calculate_woop();
+        digit_t w = compute_woop();
         if (w == woop) return;
         std::cout << "woop verification failed, computed " << w << " for ";
         print();
     }
 
-    NNI::digit_t VNNI::calculate_woop() const
+    NNI::digit_t VNNI::compute_woop() const
     {
-        NNI r = *static_cast<const NNI *>(this) % NNI(woop_base);
+        NNI r = nni % NNI(woop_base);
         assert(r.size()<2);
         return r.digit(0);
     }
 
     void VNNI::print() const
     {
-        for (auto d:digits)
-            std::cout << std::hex << std::setw(16) << std::setfill('0') << d << " ";
-        std::cout << " (" << static_cast<digit_t>(woop) << ")" << std::endl;
+        std::cout << " (" << static_cast<digit_t>(woop) << ") ";
+        nni.print();
     }
 
     VNNI & VNNI::operator<<=(int n)
     {
-        NNI::operator<<=(n);
-
+        nni <<= n;
         for (int i=0; i<n; i++)
             woop = (woop+woop)%woop_base;
         return *this;
@@ -1006,19 +1004,60 @@ namespace crypto {
 
     VNNI & VNNI::operator>>=(int n)
     {
-        NNI::operator<<=(n);
-
-        digit_t inv = inv_mod(2,woop_base);
-
-std::cout << "inv=" << inv << std::endl;
-std::cout << "woop=" << woop << std::endl;
-
-        for (int i=0; i<n; i++)
-            woop = (woop*inv)%woop_base;
-std::cout << "new woop=" << woop << std::endl;
+        // TODO: compute using only woop
+        verify();
+        nni >>= n;
+        woop = compute_woop();
         return *this;
     }
 
+    VNNI operator+(const VNNI &u,const VNNI &v)
+    {
+        return VNNI(u.nni + v.nni,(u.woop+v.woop) % VNNI::woop_base);
+    }
+
+    VNNI operator-(const VNNI &u,const VNNI &v)
+    {
+        return VNNI(u.nni - v.nni,(u.woop-v.woop+VNNI::woop_base) % VNNI::woop_base);
+    }
+
+    VNNI operator*(const VNNI &u,const VNNI &v)
+    {
+        return VNNI(u.nni * v.nni,(u.woop*v.woop) % VNNI::woop_base);
+    }
+
+    void divide(VNNI &q,VNNI &r,const VNNI &u,const VNNI &v)
+    {
+        // TODO: compute using only other woops
+        q.verify();
+        r.verify();
+        divide(q.nni,r.nni,u.nni,v.nni);
+        q.woop = q.compute_woop();
+        r.woop = r.compute_woop();
+    }
+
+    VNNI operator/(const VNNI &u,const VNNI &v)
+    {
+        VNNI q,r;
+        divide(q,r,u,v);
+        return q;
+    }
+
+    VNNI operator%(const VNNI &u,const VNNI &v)
+    {
+        VNNI q,r;
+        divide(q,r,u,v);
+        return r;
+    }
+
+    VNNI expmod(const VNNI &a,const VNNI &e,const VNNI &b)
+    {
+        // TODO: compute using only other woops
+        VNNI r;
+        r.nni = expmod(a.nni,e.nni,b.nni);
+        r.woop = r.compute_woop();
+        return r;
+    }
 
 #if 0
 

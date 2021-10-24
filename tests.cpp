@@ -1016,19 +1016,367 @@ int main()
         assert(r.digit(0)==1);
     }
 
-/*
+
+
     {
-        VNNI a(100);
+        VNNI a(7);
+        assert(a.size() == 1);
+        assert(a.digit(0) == 7);
+
+        a = VNNI(123456789012345);
+        assert(a.digit(0) == 123456789012345);
+        assert(a.size() == 1);
+    }
+    {
+        VNNI a("1");
+        assert(a.digit(0) == 1);
+        assert(a.size() == 1);
+    }
+    {
+        VNNI a("3");
+        assert(a.digit(0) == 3);
+        assert(a.size() == 1);
+
+        VNNI b;
+        b = a*a;
+        assert(b.digit(0) == 9);
+        assert(b.size()==1);
+
+        VNNI c;
+        c = b*a;
+        assert(c.digit(0) == 27);
+        assert(c.size()==1);
+    }
+    {
+        VNNI a("12");
+        assert(a.digit(0) == 12);
+        assert(a.size() == 1);
+    }
+    {
+        VNNI a("123");
+        assert(a.digit(0) == 123);
+        assert(a.size() == 1);
     }
 
     {
-        VNNI a(100);
+        VNNI a;
+        assert(a.format() == "0");
+    }
+    {
+        VNNI a(7);
+        assert(a.format() == "7");
+    }
+    {
+        VNNI a(123456789012345);
+        assert(a.format() == "123456789012345");
+    }
+    {
+        VNNI a(99);
+        assert(a.format() == "99");
+    }
+
+    {
+        VNNI a(1);
         a <<= 1;
+        assert(a.format() == "2");
+        a <<= 1;
+        assert(a.format() == "4");
+        a <<= 1;
+        assert(a.format() == "8");
+        a <<= 1;
+        assert(a.format() == "16");
+        a <<= 4;
+        assert(a.format() == "256");
+        a <<= 8;
+        assert(a.format() == "65536");
+        a <<= 16;
+        assert(a.format() == "4294967296");
+        a <<= 32;
+        assert(a.size()==2);
+        assert(a.digit(0)==0);
+        assert(a.digit(1)==1);
+        a >>= 1;
+        assert(a.size()==1);
+        a >>= 63;
+        assert(a.size()==1);
+        assert(a.digit(0)==1);
+        a >>= 1;
+        assert(a.size()==0);
     }
 
     {
-        VNNI a(100);
-        a >>= 1;
+        VNNI a(1),b(7),c,d;
+        a <<= 1;
+        a <<= 63;
+        b <<= 1;
+        b <<= 63;
+        c = a + b;
+
+        assert(c.size()==2);
+        assert(c.digit(0)==0);
+        assert(c.digit(1)==8);
+
+        a = VNNI(10000);
+        a <<= 1;
+        a <<= 63;
+        b = VNNI(30000);
+        b <<= 1;
+        b <<= 63;
+        c = VNNI(1234);
+        d = a + c + b + c;
+        assert(d.size()==2);
+        assert(d.digit(0)==1234*2);
+        assert(d.digit(1)==40000);
     }
-*/
+
+    {
+        VNNI a(1),b(7),c,d;
+        a <<= 1;
+        a <<= 63;
+        b <<= 1;
+        b <<= 63;
+        c = b - a;
+
+        assert(c.size()==2);
+        assert(c.digit(0)==0);
+        assert(c.digit(1)==6);
+
+        a = VNNI(10000);
+        a <<= 1;
+        a <<= 63;
+        b = VNNI(30000);
+        b <<= 1;
+        b <<= 63;
+        c = VNNI(1234);
+        d = (b+c) - (a+c);
+        assert(d.size()==2);
+        assert(d.digit(0)==0);
+        assert(d.digit(1)==20000);
+    }
+
+    {
+        VNNI a(3),b(7),c,d;
+        a <<= 1;
+        a <<= 63;
+        b <<= 1;
+        b <<= 63;
+        c = b * a;
+        d = a * b;
+        assert(c==d);
+        assert(c.size()==3);
+        assert(c.digit(0)==0);
+        assert(c.digit(1)==0);
+        assert(c.digit(2)==21);
+    }
+
+    {
+        VNNI a(4);
+        a <<= 32;
+        a <<= 32;
+        a = a + VNNI(3);
+        a <<= 32;
+        a <<= 32;
+        a = a + VNNI(2);
+
+        VNNI b(7);
+        b <<= 32;
+        b <<= 32;
+        b = b + VNNI(6);
+        b <<= 32;
+        b <<= 32;
+        b = b + VNNI(5);
+
+        //          4   3   2
+        //       x  7   6   5
+        //       ------------
+        //         20  15  10
+        //     24  18  12
+        // 28  21  14
+
+        VNNI c = a * b;
+        assert(c.size()==5);
+        assert(c.digit(0) == 2*5);
+        assert(c.digit(1) == 3*5+2*6);
+        assert(c.digit(2) == 4*5+6*3+7*2);
+        assert(c.digit(3) == 4*6+7*3);
+        assert(c.digit(4) == 4*7);
+    }
+
+    {
+        VNNI a(1UL<<63);
+        a <<= 1;
+        a <<= 63;
+        a = a + VNNI(1UL<<63);
+        a <<= 1;
+        a <<= 63;
+        a = a + VNNI(1UL<<63);
+
+        //                    1000  1000  1000
+        //                  x 1000  1000  1000
+        //                  ------------------
+        //               100  0100  0100  0000
+        //        0100  0100  0100  0000
+        //  0100  0100  0100  0000
+        //  ----------------------------------
+        //  0100  1000  1100  1000  0100  0000
+
+        VNNI c = a * a;
+        assert(c.size()==6);
+        assert(c.digit(0) == 0);
+        assert(c.digit(1) == 1UL<<62);
+        assert(c.digit(2) == 1UL<<63);
+        assert(c.digit(3) == 3UL<<62);
+        assert(c.digit(4) == 1UL<<63);
+        assert(c.digit(5) == 1UL<<62);
+    }
+
+    {
+        VNNI a(1),b(1);
+        assert(!(a<b));
+        assert(!(b<a));
+    }
+    {
+        VNNI a(1),b(2);
+        assert(a<b);
+        assert(!(b<a));
+
+        VNNI c(1);
+        c <<= 32;
+        c <<= 32;
+
+        a = a + b;
+        assert(!(a<b));
+        assert(b<a);
+
+        b = b + c;
+        assert(a<b);
+        assert(!(b<a));
+
+        c <<= 32;
+        c <<= 32;
+        b = b + c;
+        assert(!(b<a));
+        assert(a<b);
+    }
+    {
+        VNNI a,b;
+        assert(!(a<b));
+        assert(!(b<a));
+        a = a + VNNI(1);
+        assert(!(a<b));
+        assert(b<a);
+    }
+
+    {
+        VNNI q,r,u,v;
+
+        for (VNNI::digit_t i=0; i<20; i++)
+            for (VNNI::digit_t j=1; j<25; j++) {
+                u = VNNI(i);
+                v = VNNI(j);
+                divide(q,r,u,v);
+
+                if (i/j) {
+                    assert(q.size()==1);
+                    assert(q.digit(0)==i/j);
+                }
+                else 
+                    assert(q.size()==0);
+
+                if (i%j) {
+                    assert(r.size()==1);
+                    assert(r.digit(0)==i%j);
+                }
+                else {
+                    //std::cout << u << "\n";
+                    //std::cout << v << "\n";
+                    //std::cout << q << "\n";
+                    //std::cout << r << "\n";
+                    assert(r.size()==0);
+                }
+            }
+
+        for (VNNI::digit_t i=0; i<20; i++)
+            for (VNNI::digit_t j=1; j<25; j++) {
+                u = VNNI(i);
+                u <<= 1;
+                u <<= 63;
+                v = VNNI(j);
+                v <<= 1;
+                v <<= 63;
+                divide(q,r,u,v);
+
+                if (i/j) {
+                    assert(q.size()==1);
+                    assert(q.digit(0)==i/j);
+                }
+                else 
+                    assert(q.size()==0);
+
+                if (i%j) {
+                    assert(r.size()==2);
+                    assert(r.digit(0)==0);
+                    assert(r.digit(1)==i%j);
+                }
+                else {
+                    assert(r.size()==0);
+                }
+            }
+
+        for (VNNI::digit_t i=0; i<20; i++)
+            for (VNNI::digit_t j=1; j<25; j++) {
+                u = VNNI(i);
+                u <<= 1;
+                u <<= 63;
+                u <<= 1;
+                u <<= 63;
+                v = VNNI(j);
+                v <<= 1;
+                v <<= 63;
+                v <<= 1;
+                v <<= 63;
+                divide(q,r,u,v);
+
+                if (i/j) {
+                    assert(q.size()==1);
+                    assert(q.digit(0)==i/j);
+                }
+                else 
+                    assert(q.size()==0);
+
+                if (i%j) {
+                    assert(r.size()==3);
+                    assert(r.digit(0)==0);
+                    assert(r.digit(1)==0);
+                    assert(r.digit(2)==i%j);
+                }
+                else {
+                    assert(r.size()==0);
+                }
+            }
+    }
+
+    {
+        VNNI a("123456789012345678901234567890");
+        assert(a.size() == 2);
+        assert(a.format() == "123456789012345678901234567890");
+    }
+    {
+        VNNI a("1234567890123456789012345678901234567890");
+        assert(a.format() == "1234567890123456789012345678901234567890");
+    }
+
+    {
+        VNNI a(2),e(64),b("999999999999999999999999999999999999999");
+        VNNI r = expmod(a,e,b);
+        assert(r.size()==2);
+        assert(r.digit(0)==0);
+        assert(r.digit(1)==1);
+
+        b = VNNI(3);
+        r = expmod(a,e,b);
+        assert(r.size()==1);
+        assert(r.digit(0)==1);
+    }
+
 }
