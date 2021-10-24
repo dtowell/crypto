@@ -288,7 +288,7 @@ int main()
         assert(pub.e == 65537);
     }
 
-
+#if 0
     {
         nni_t a;
         assert(format(a) == "0");
@@ -653,7 +653,7 @@ int main()
         assert(r.size()==1);
         assert(r[0]==1);
     }
-
+#endif
 
     {
         NNI a(7);
@@ -907,8 +907,8 @@ int main()
     {
         NNI q,r,u,v;
 
-        for (digit_t i=0; i<20; i++)
-            for (digit_t j=1; j<25; j++) {
+        for (NNI::digit_t i=0; i<20; i++)
+            for (NNI::digit_t j=1; j<25; j++) {
                 u = NNI(i);
                 v = NNI(j);
                 divide(q,r,u,v);
@@ -933,8 +933,8 @@ int main()
                 }
             }
 
-        for (digit_t i=0; i<20; i++)
-            for (digit_t j=1; j<25; j++) {
+        for (NNI::digit_t i=0; i<20; i++)
+            for (NNI::digit_t j=1; j<25; j++) {
                 u = NNI(i);
                 u <<= 1;
                 u <<= 63;
@@ -960,8 +960,8 @@ int main()
                 }
             }
 
-        for (digit_t i=0; i<20; i++)
-            for (digit_t j=1; j<25; j++) {
+        for (NNI::digit_t i=0; i<20; i++)
+            for (NNI::digit_t j=1; j<25; j++) {
                 u = NNI(i);
                 u <<= 1;
                 u <<= 63;
@@ -1015,4 +1015,20 @@ int main()
         assert(r.size()==1);
         assert(r.digit(0)==1);
     }
+
+/*
+    {
+        VNNI a(100);
+    }
+
+    {
+        VNNI a(100);
+        a <<= 1;
+    }
+
+    {
+        VNNI a(100);
+        a >>= 1;
+    }
+*/
 }

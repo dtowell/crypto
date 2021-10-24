@@ -84,8 +84,7 @@ namespace crypto {
         friend bool operator<(const NNI &u,const NNI &v);
         friend bool operator==(const NNI &u,const NNI &v);
 
-        static digit_t woop_base;
-    private:
+    protected:
         digit_t & operator[](int i) { return digits.at(static_cast<size_t>(i)); }
 
         void canonicalize();
@@ -93,6 +92,32 @@ namespace crypto {
         static digit_t find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2);
 
         std::vector<digit_t> digits;
+    };
+
+    class VNNI : public NNI {
+    public:
+        VNNI() : woop(0) { }
+        VNNI(digit_t n) : NNI(n), woop(n % woop_base) { }
+        VNNI(const std::string &str) : NNI(str) { }
+        ~VNNI() { verify(); }
+
+        void print() const;
+
+        VNNI & operator<<=(int n);
+        VNNI & operator>>=(int n);
+
+        friend VNNI operator+(const VNNI &u,const VNNI &v);
+        friend VNNI operator-(const VNNI &u,const VNNI &v);
+        friend VNNI operator*(const VNNI &u,const VNNI &v);
+        friend VNNI operator/(const VNNI &u,const VNNI &v);
+        friend VNNI operator%(const VNNI &u,const VNNI &v);
+        friend void divide(VNNI &q,VNNI &r,const VNNI &u,const VNNI &v);
+        friend VNNI expmod(const VNNI &a,const VNNI &e,const VNNI &b);
+
+        void verify() const;
+        static digit_t woop_base;
+    private:
+        digit_t calculate_woop() const;
         digit_t woop;
     };
 
@@ -132,7 +157,7 @@ namespace crypto {
 
 std::ostream & operator<<(std::ostream &out,const crypto::buffer_t &buffer);
 std::ostream & operator<<(std::ostream &out,const crypto::block_t &block);
-std::ostream & operator<<(std::ostream &out,const crypto::nni_t &n);
+//std::ostream & operator<<(std::ostream &out,const crypto::nni_t &n);
 std::ostream & operator<<(std::ostream &out,const crypto::NNI &n);
 
 #endif

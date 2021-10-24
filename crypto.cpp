@@ -19,11 +19,11 @@ std::ostream & operator<<(std::ostream &out,const crypto::block_t &b) {
     return out;
 }
 
-std::ostream & operator<<(std::ostream &out,const crypto::nni_t &u) {
-    for (auto d:u)
-        out << std::hex << std::setw(16) << std::setfill('0') << d << " ";
-    return out;
-}
+//std::ostream & operator<<(std::ostream &out,const crypto::nni_t &u) {
+//    for (auto d:u)
+//        out << std::hex << std::setw(16) << std::setfill('0') << d << " ";
+//    return out;
+//}
 
 std::ostream & operator<<(std::ostream &out,const crypto::NNI &u) {
     out << u.format();
@@ -691,7 +691,7 @@ namespace crypto {
 
     /////////////////////////////////////////////////////////////////////////////////////////////
 
-    NNI::NNI(digit_t n) 
+    NNI::NNI(digit_t n)
     {
         if (n)
             digits.push_back(n);
@@ -711,8 +711,7 @@ namespace crypto {
     void NNI::print() const
     {
         for (auto d:digits)
-            std::cout << std::hex << std::setw(16) << std::setfill('0') << d << " ";
-        std::cout << std::endl;
+            std::cout << std::hex << std::setw(16) << std::setfill('0') << d << std::endl;
     }
 
     NNI & NNI::operator<<=(int shift)
@@ -728,6 +727,7 @@ namespace crypto {
         }
         if (bits > 0)
             digits.push_back(bits);
+
         return *this;
     }
 
@@ -745,8 +745,6 @@ namespace crypto {
         canonicalize();
         return *this;
     }
-
-    digit_t NNI::woop_base = 0;
 
     int NNI::top_zeros()
     {
@@ -770,9 +768,9 @@ namespace crypto {
     {
         NNI r;
         int m = std::max(u.size(),v.size());
-        digit_t carry = 0;
+        NNI::digit_t carry = 0;
         for (int i=0; i<m; i++) {
-            digit_t c = u.digit(i) + v.digit(i) + carry;
+            NNI::digit_t c = u.digit(i) + v.digit(i) + carry;
             if (carry)
                 carry = c <= u.digit(i);
             else
@@ -789,7 +787,7 @@ namespace crypto {
         assert(!(u<v));
         NNI r;
         int size = std::max(u.size(),v.size());
-        digit_t borrow = false;
+        NNI::digit_t borrow = false;
         for (int i=0; i<size; i++) {
             r.digits.push_back(u.digit(i)-v.digit(i)-borrow);
             if (borrow)
@@ -808,12 +806,12 @@ namespace crypto {
         std::fill(r.digits.begin(),r.digits.end(),0);
 
         for (int j=0; j<v.size(); j++) {
-            long_t z = 0;
+            NNI::long_t z = 0;
             for (int i=0; i<u.size() || z>0; i++) {
                 z += r[j+i];
-                z += static_cast<long_t>(u.digit(i)) * v.digit(j);
-                r[j+i] = static_cast<digit_t>(z);
-                z >>= sizeof(digit_t)*8;
+                z += static_cast<NNI::long_t>(u.digit(i)) * v.digit(j);
+                r[j+i] = static_cast<NNI::digit_t>(z);
+                z >>= sizeof(NNI::digit_t)*8;
             }
         }
         r.canonicalize();
@@ -837,13 +835,13 @@ namespace crypto {
         }
 
         if (v.size()==1 && u.size()==2) {
-            long_t n = (static_cast<long_t>(u.digit(1))<<(sizeof(digit_t)*8)) + u.digit(0);
-            long_t a = n / v.digit(0);
-            q = NNI(static_cast<digit_t>(a));
-            digit_t h = static_cast<digit_t>(a >> (sizeof(digit_t)*8));
+            NNI::long_t n = (static_cast<NNI::long_t>(u.digit(1))<<(sizeof(NNI::digit_t)*8)) + u.digit(0);
+            NNI::long_t a = n / v.digit(0);
+            q = NNI(static_cast<NNI::digit_t>(a));
+            NNI::digit_t h = static_cast<NNI::digit_t>(a >> (sizeof(NNI::digit_t)*8));
             if (h)
                 q.digits.push_back(h);
-            r = NNI(static_cast<digit_t>(n % v.digit(0)));
+            r = NNI(static_cast<NNI::digit_t>(n % v.digit(0)));
             return;
         }
 
@@ -857,7 +855,7 @@ namespace crypto {
         int n = v2.size();
         q.digits.resize(m-n+1);
         for (int k = m-n; k>=0; k--) {
-            digit_t qhat = NNI::find_qhat(r.digit(k+n),r.digit(k+n-1),r.digit(k+n-2),v2.digit(n-1),v2.digit(n-2));
+            NNI::digit_t qhat = NNI::find_qhat(r.digit(k+n),r.digit(k+n-1),r.digit(k+n-2),v2.digit(n-1),v2.digit(n-2));
             NNI t;
             t.digits.resize(k+1);
             t[k] = qhat;
@@ -878,7 +876,7 @@ namespace crypto {
         q.canonicalize();
     }
 
-    digit_t NNI::find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2)
+    NNI::digit_t NNI::find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2)
     {
         const int shift = sizeof(digit_t)*8;
         long_t q = ((static_cast<long_t>(un)<<shift) + un1) / vn1;
@@ -937,7 +935,7 @@ namespace crypto {
         NNI r(1);
         NNI a2(a);
         NNI t,t2;
-        int shift = sizeof(digit_t)*8;
+        int shift = sizeof(NNI::digit_t)*8;
         for (int i=0; i<e.size()*shift; i++) {
             if (e.digit(i/shift) & (1UL<<(i%shift))) {
                 t = r * a2;
@@ -972,6 +970,55 @@ namespace crypto {
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////
+
+    NNI::digit_t VNNI::woop_base = 17;
+
+    void VNNI::verify() const
+    {
+        digit_t w = calculate_woop();
+        if (w == woop) return;
+        std::cout << "woop verification failed, computed " << w << " for ";
+        print();
+    }
+
+    NNI::digit_t VNNI::calculate_woop() const
+    {
+        NNI r = *static_cast<const NNI *>(this) % NNI(woop_base);
+        assert(r.size()<2);
+        return r.digit(0);
+    }
+
+    void VNNI::print() const
+    {
+        for (auto d:digits)
+            std::cout << std::hex << std::setw(16) << std::setfill('0') << d << " ";
+        std::cout << " (" << static_cast<digit_t>(woop) << ")" << std::endl;
+    }
+
+    VNNI & VNNI::operator<<=(int n)
+    {
+        NNI::operator<<=(n);
+
+        for (int i=0; i<n; i++)
+            woop = (woop+woop)%woop_base;
+        return *this;
+    }
+
+    VNNI & VNNI::operator>>=(int n)
+    {
+        NNI::operator<<=(n);
+
+        digit_t inv = inv_mod(2,woop_base);
+
+std::cout << "inv=" << inv << std::endl;
+std::cout << "woop=" << woop << std::endl;
+
+        for (int i=0; i<n; i++)
+            woop = (woop*inv)%woop_base;
+std::cout << "new woop=" << woop << std::endl;
+        return *this;
+    }
+
 
 #if 0
 
