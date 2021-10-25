@@ -711,7 +711,8 @@ namespace crypto {
     void NNI::print() const
     {
         for (auto d:digits)
-            std::cout << std::hex << std::setw(16) << std::setfill('0') << d << std::endl;
+            std::cout << std::hex << std::setw(16) << std::setfill('0') << d << " ";
+        std::cout << std::endl;
     }
 
     NNI & NNI::operator<<=(int shift)
@@ -934,15 +935,11 @@ namespace crypto {
     {
         NNI r(1);
         NNI a2(a);
-        NNI t,t2;
         int shift = sizeof(NNI::digit_t)*8;
         for (int i=0; i<e.size()*shift; i++) {
-            if (e.digit(i/shift) & (1UL<<(i%shift))) {
-                t = r * a2;
-                divide(t2,r,t,b);
-            }
-            t = a2 * a2;
-            divide(t2,a2,t,b);
+            if (e.digit(i/shift) & (1UL<<(i%shift)))
+                r = r * a2 % b;
+            a2 = a2 * a2 % b;
         }
         return r;
     }
@@ -990,7 +987,7 @@ namespace crypto {
 
     void VNNI::print() const
     {
-        std::cout << " (" << static_cast<digit_t>(woop) << ") ";
+        std::cout << " (" << std::dec << static_cast<digit_t>(woop) << ") ";
         nni.print();
     }
 
@@ -1004,7 +1001,6 @@ namespace crypto {
 
     VNNI & VNNI::operator>>=(int n)
     {
-        // TODO: compute using only woop
         verify();
         nni >>= n;
         woop = compute_woop();
@@ -1028,12 +1024,27 @@ namespace crypto {
 
     void divide(VNNI &q,VNNI &r,const VNNI &u,const VNNI &v)
     {
-        // TODO: compute using only other woops
-        q.verify();
-        r.verify();
         divide(q.nni,r.nni,u.nni,v.nni);
         q.woop = q.compute_woop();
-        r.woop = r.compute_woop();
+        r.woop = (q.woop*v.woop+VNNI::woop_base-u.woop) % VNNI::woop_base;
+        if (r.woop) r.woop = VNNI::woop_base - r.woop;
+        //if (r.compute_woop() != r.woop) {
+        //    std::cout << "verification failed\n";
+        //    std::cout << "u="; u.print();
+        //    std::cout << "v="; v.print();
+        //    std::cout << "q="; q.print();
+        //    std::cout << "r="; r.print();
+        //    std::cout << "r.compute=" << r.compute_woop() << "\n";
+        //}
+        assert(r.compute_woop() == r.woop);
+        //if ((q.woop*v.woop+r.woop)%VNNI::woop_base != u.woop) {
+        //    std::cout << "verification failed\n";
+        //    std::cout << "u="; u.print();
+        //    std::cout << "v="; v.print();
+        //    std::cout << "q="; q.print();
+        //    std::cout << "r="; r.print();
+        //}
+        assert((q.woop*v.woop+r.woop)%VNNI::woop_base == u.woop);
     }
 
     VNNI operator/(const VNNI &u,const VNNI &v)
@@ -1052,10 +1063,14 @@ namespace crypto {
 
     VNNI expmod(const VNNI &a,const VNNI &e,const VNNI &b)
     {
-        // TODO: compute using only other woops
-        VNNI r;
-        r.nni = expmod(a.nni,e.nni,b.nni);
-        r.woop = r.compute_woop();
+        VNNI r(1);
+        VNNI a2(a);
+        int shift = sizeof(NNI::digit_t)*8;
+        for (int i=0; i<e.size()*shift; i++) {
+            if (e.digit(i/shift) & (1UL<<(i%shift)))
+                r = r * a2 % b;
+            a2 = a2 * a2 % b;
+        }
         return r;
     }
 

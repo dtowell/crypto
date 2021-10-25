@@ -1016,7 +1016,20 @@ int main()
         assert(r.digit(0)==1);
     }
 
-
+    {
+        NNI a("999999999999999999999999999999999999999"),e(3),b(65537);
+        NNI r = expmod(a,e,b);
+        NNI c = a*a*a;
+        NNI d = c % b;
+        assert(r == d);
+    }
+    {
+        NNI a("999999999999999999999999999999999999999"),b(65537);
+        NNI r = expmod(a,NNI(7),b);
+        NNI c = a*a*a*a*a*a*a;
+        NNI d = c % b;
+        assert(r == d);
+    }
 
     {
         VNNI a(7);
@@ -1377,6 +1390,21 @@ int main()
         r = expmod(a,e,b);
         assert(r.size()==1);
         assert(r.digit(0)==1);
+    }
+
+    {
+        VNNI a("999999999999999999999999999999999999999"),e(3),b(65537);
+        VNNI r = expmod(a,e,b);
+        VNNI c = a*a*a;
+        VNNI d = c % b;
+        assert(r == d);
+    }
+    {
+        VNNI a("999999999999999999999999999999999999999"),b(65537);
+        VNNI r = expmod(a,VNNI(7),b);
+        VNNI c = a*a*a*a*a*a*a;
+        VNNI d = c % b;
+        assert(r == d);
     }
 
 }
