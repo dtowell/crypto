@@ -203,7 +203,7 @@ int main()
     }
 
     { // https://www.di-mgt.com.au/rsa_alg.html
-        rsa_private_t key;
+        srsa_private_t key;
         key.p=11;
         key.q=3;
         key.e=3;
@@ -228,7 +228,7 @@ int main()
     }
 
     { // https://www.di-mgt.com.au/rsa_alg.html
-        rsa_private_t key;
+        srsa_private_t key;
         key.p=173;
         key.q=149;
         key.e=3;
@@ -246,26 +246,26 @@ int main()
         assert(pow_mod(  518,key.e,n)== 2248);
         assert(pow_mod(16187,key.e,n)==24465);
 
-        rsa_public_t pub;
-        assert(rsa_publish(key,pub));
+        srsa_public_t pub;
+        assert(srsa_publish(key,pub));
         uint64_t encoded;
-        assert(rsa_encode( 1289,pub,encoded)); assert(encoded == 18524);
-        assert(rsa_encode(  821,pub,encoded)); assert(encoded ==  7025);
-        assert(rsa_encode(   47,pub,encoded)); assert(encoded ==   715);
-        assert(rsa_encode(  518,pub,encoded)); assert(encoded ==  2248);
-        assert(rsa_encode(16187,pub,encoded)); assert(encoded == 24465);
+        assert(srsa_encode( 1289,pub,encoded)); assert(encoded == 18524);
+        assert(srsa_encode(  821,pub,encoded)); assert(encoded ==  7025);
+        assert(srsa_encode(   47,pub,encoded)); assert(encoded ==   715);
+        assert(srsa_encode(  518,pub,encoded)); assert(encoded ==  2248);
+        assert(srsa_encode(16187,pub,encoded)); assert(encoded == 24465);
 
         uint64_t decoded;
-        assert(rsa_decode(18524,key,decoded)); assert(decoded ==  1289);
-        assert(rsa_decode( 7025,key,decoded)); assert(decoded ==   821);
-        assert(rsa_decode(  715,key,decoded)); assert(decoded ==    47);
-        assert(rsa_decode( 2248,key,decoded)); assert(decoded ==   518);
-        assert(rsa_decode(24465,key,decoded)); assert(decoded == 16187);
+        assert(srsa_decode(18524,key,decoded)); assert(decoded ==  1289);
+        assert(srsa_decode( 7025,key,decoded)); assert(decoded ==   821);
+        assert(srsa_decode(  715,key,decoded)); assert(decoded ==    47);
+        assert(srsa_decode( 2248,key,decoded)); assert(decoded ==   518);
+        assert(srsa_decode(24465,key,decoded)); assert(decoded == 16187);
     }
 
     {
-        rsa_private_t key;
-        assert(rsa_generate(key));
+        srsa_private_t key;
+        assert(srsa_generate(key));
         assert(is_prime(key.p));
         assert(is_prime(key.q));
         assert(key.p != key.q);
@@ -280,8 +280,8 @@ int main()
         for (uint64_t i=0; i<10000; i++)
             assert(pow_mod(pow_mod(i,key.e,n),key.d,n)==i);
 
-        rsa_public_t pub;
-        assert(rsa_publish(key,pub));
+        srsa_public_t pub;
+        assert(srsa_publish(key,pub));
         assert(pub.n = key.p*key.q);
         assert(!is_prime(pub.n));
         assert(is_prime(pub.e));

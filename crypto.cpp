@@ -646,7 +646,7 @@ namespace crypto {
         }
     }
 
-    bool rsa_generate(rsa_private_t &key) 
+    bool srsa_generate(srsa_private_t &key) 
     {
         // https://www.di-mgt.com.au/rsa_alg.html
         key.e = 65537;
@@ -671,6 +671,85 @@ namespace crypto {
         return true;
     }
 
+    bool srsa_publish(const srsa_private_t &key, srsa_public_t &pub)
+    {
+        pub.n = key.p * key.q;
+        pub.e = key.e;
+        return true;
+    }
+
+    bool srsa_encode(uint64_t plain,const srsa_public_t &pub,uint64_t &encoded)
+    {
+        encoded = pow_mod(plain,pub.e,pub.n);
+        return true;
+    }
+    bool srsa_decode(uint64_t encoded,const srsa_private_t &key,uint64_t &plain)
+    {
+        plain = pow_mod(encoded,key.d,key.p*key.q);
+        return true;
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool random_prime(int k,size_t size,NNI &n)
+    {
+        buffer_t bytes;
+        NNI two{2};
+
+        start_over:
+
+        // create a size-byte, odd random number
+        if (!rand_rdrand(size,bytes))
+            return false;
+        bytes[size-1] |= 0x80;
+        bytes[0] |= 1;
+        n = NNI(bytes);
+
+        // compute d and r (and t)
+        NNI d = n-1;
+        int r = n.bottom_zeros();
+        d >>= r;
+
+        int t = n.top_zeros();
+        NNI n2 = n-two;
+
+        int i=0;
+        witness_loop:
+        if (i++>=k) return true; // SUCCESS!!
+        
+        // choose a random a in [2,n-2]
+        NNI a(1);
+        while (a<2 || n2<a) {
+            if (!rand_rdrand(size,bytes))
+                return false;
+            bytes[bytes.size()-1] &= static_cast<uint8_t>((1<<(8-t%8))-1);
+            a = NNI(bytes);
+        }
+
+        // test
+        NNI x = expmod(a,d,n);
+        if (x<2 || n2<x) goto witness_loop;
+        for (int j=0; j<r; j++) {
+            x = x*x % n;
+            if (x == n-1) goto witness_loop;
+        }
+        goto start_over;
+    }
+
+    bool rsa_generate(rsa_private_t &key) 
+    {
+        // https://www.di-mgt.com.au/rsa_alg.html
+        key.e = 65537;
+
+        if (!random_prime(30,2000/8,key.p))
+            return false;
+        if (!random_prime(30,2050/8,key.p))
+            return false;
+
+        key.d = invmod(key.e,(key.p-1)*(key.q-1));
+        return true;
+    }
+
     bool rsa_publish(const rsa_private_t &key, rsa_public_t &pub)
     {
         pub.n = key.p * key.q;
@@ -678,14 +757,14 @@ namespace crypto {
         return true;
     }
 
-    bool rsa_encode(uint64_t plain,const rsa_public_t &pub,uint64_t &encoded)
+    bool rsa_encode(const NNI &plain,const rsa_public_t &pub,NNI &encoded)
     {
-        encoded = pow_mod(plain,pub.e,pub.n);
+        encoded = expmod(plain,pub.e,pub.n);
         return true;
     }
-    bool rsa_decode(uint64_t encoded,const rsa_private_t &key,uint64_t &plain)
+    bool rsa_decode(const NNI &encoded,const rsa_private_t &key,NNI &plain)
     {
-        plain = pow_mod(encoded,key.d,key.p*key.q);
+        plain = expmod(encoded,key.d,key.p*key.q);
         return true;
     }
 
@@ -706,6 +785,18 @@ namespace crypto {
             r = r*ten+digit;
         }
         digits = r.digits;
+    }
+
+    NNI::NNI(const buffer_t &bytes)
+    {
+        size_t count = (bytes.size()+sizeof(digit_t)-1)/sizeof(digit_t);
+        digits.resize(count);
+        for (size_t i=0; i<count; i++) {
+            digit_t d = reinterpret_cast<const digit_t *>(&bytes[0])[i];
+            if (i==count-1 && bytes.size() % sizeof(digit_t))
+                d &= (1 << (bytes.size() % sizeof(digit_t))*8) - 1;
+            digits[i] = d;
+        }
     }
 
     void NNI::print() const
@@ -755,6 +846,19 @@ namespace crypto {
         while (x < HALF) {
             x <<= 1;
             shift++;
+        }
+        return shift;
+    }
+
+    int NNI::bottom_zeros()
+    {
+        assert(digits.size()>0); // not defined for 0
+
+        int shift = 0;
+        digit_t bit = 1;
+        while ((digits.front() & bit) == 0) {
+            shift++;
+            bit <<= 1;
         }
         return shift;
     }
@@ -942,6 +1046,25 @@ namespace crypto {
             a2 = a2 * a2 % b;
         }
         return r;
+    }
+
+    NNI invmod(const NNI &e,const NNI &m) 
+    {
+        // https://crypto.stackexchange.com/questions/5889/calculating-rsa-private-exponent-when-given-public-exponent-and-the-modulus-fact
+        NNI a = e;
+        NNI b = m;
+        NNI x = 0;
+        NNI y = 1;
+        while (true) {
+            if (a==1)
+                return y;
+            assert(!(a == 0));
+            divide(x,b,b,a);
+            if (b==1) 
+                return m-x;
+            assert(!(b == 0));
+            divide(y,a,a,b);
+        }
     }
 
     bool operator<(const NNI &u,const NNI &v) 
@@ -1321,6 +1444,7 @@ namespace crypto {
             divide(t2,a2,t,b);
         }
     }
+#endif
 
     bool decode_rsakey(const buffer_t &buffer,std::vector<buffer_t> &fields) 
     {
@@ -1347,7 +1471,5 @@ namespace crypto {
         }
         return true;
     }
-
-#endif
 
 };

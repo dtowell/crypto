@@ -41,19 +41,19 @@ namespace crypto {
     uint64_t pow_mod(uint64_t x,uint64_t e,uint64_t m);
     uint64_t inv_mod(uint64_t e,uint64_t m);
 
-    struct rsa_private_t {
+    struct srsa_private_t {
         uint64_t    p,q;
         uint64_t    e,d;
     };
 
-    struct rsa_public_t {
+    struct srsa_public_t {
         uint64_t    e,n;
     };
 
-    bool rsa_generate(rsa_private_t &key);
-    bool rsa_publish(const rsa_private_t &key, rsa_public_t &pub);
-    bool rsa_encode(uint64_t plain,const rsa_public_t &pub,uint64_t &encoded);
-    bool rsa_decode(uint64_t encoded,const rsa_private_t &key,uint64_t &plain);
+    bool srsa_generate(srsa_private_t &key);
+    bool srsa_publish(const srsa_private_t &key, srsa_public_t &pub);
+    bool srsa_encode(uint64_t plain,const srsa_public_t &pub,uint64_t &encoded);
+    bool srsa_decode(uint64_t encoded,const srsa_private_t &key,uint64_t &plain);
 
     class NNI {
     public:
@@ -63,6 +63,7 @@ namespace crypto {
         NNI() { }
         NNI(digit_t n);
         NNI(const std::string &str);
+        NNI(const buffer_t &bytes);
 
         void print() const;
         std::string format() const;
@@ -70,6 +71,8 @@ namespace crypto {
         digit_t digit(int i) const { 
             return (i>=0 && i<size()) ? digits.at(i) : 0;
         }
+        int bottom_zeros();
+        int top_zeros();
         
         NNI & operator<<=(int n);
         NNI & operator>>=(int n);
@@ -81,6 +84,7 @@ namespace crypto {
         friend NNI operator%(const NNI &u,const NNI &v);
         friend void divide(NNI &q,NNI &r,const NNI &u,const NNI &v);
         friend NNI expmod(const NNI &a,const NNI &e,const NNI &b);
+        friend NNI invmod(const NNI &e,const NNI &m);
         friend bool operator<(const NNI &u,const NNI &v);
         friend bool operator==(const NNI &u,const NNI &v);
 
@@ -88,11 +92,53 @@ namespace crypto {
         digit_t & operator[](int i) { return digits.at(static_cast<size_t>(i)); }
 
         void canonicalize();
-        int top_zeros();
         static digit_t find_qhat(digit_t un,digit_t un1,digit_t un2,digit_t vn1,digit_t vn2);
 
         std::vector<digit_t> digits;        
     };
+
+    struct rsa_private_t {
+        NNI    p,q;
+        NNI    e,d;
+    };
+
+    struct rsa_public_t {
+        NNI    e,n;
+    };
+
+    bool rsa_generate(rsa_private_t &key);
+    bool rsa_publish(const rsa_private_t &key, rsa_public_t &pub);
+    bool rsa_encode(const NNI &plain,const rsa_public_t &pub,NNI &encoded);
+    bool rsa_decode(const NNI &encoded,const rsa_private_t &key,NNI &plain);
+
+    bool is_miller_rabin_prime(int k,const NNI &n);
+    bool random_miller_rabin_prime(int k,NNI &p);
+
+    struct dh_secret_t {
+        NNI     p; // prime
+        NNI     g; // base, usually 2
+        NNI     a; // my half of the secret, any random number
+    };
+
+    struct dh_exchange_t {
+        NNI     p;      // prime
+        NNI     g;      // base, usually 2
+        NNI     half;   // encoded half secret; g^a mod p
+        NNI     sig;    // authentication; hash(half)^priv.d mod priv.n
+    };
+
+    // Alice:   s = generate()
+    // Alice:   e = encode(s,A's private key)
+    //      Alice --e--> Bob
+    // Bob:     t = generate(e)
+    // Bob:     f = encode(t,B's private key)
+    //      Alice <--f-- Bob
+    // Bob:     k = combine(e,t,A's public key)
+    // Alice:   k = combine(f,s,B's public key)
+
+    bool dh_generate(dh_secret_t &secret,const dh_exchange_t *e=nullptr);
+    bool dh_encode(dh_exchange_t &e,const dh_secret_t &secret,const rsa_private_t &key);
+    bool dh_combine(NNI &shared_secret,const dh_exchange_t &e,const dh_secret_t &secret,const rsa_public_t &pub);
 
     class VNNI {
     public:
