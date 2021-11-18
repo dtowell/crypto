@@ -585,6 +585,8 @@ namespace crypto {
         for (size_t i=0; i<bytes; i+=4)
             if (!_rdrand32_step(reinterpret_cast<uint32_t *>(&buffer[i])))
                 return false;
+        while (buffer.size()>bytes)
+                buffer.pop_back();
         return true;
     }
 
@@ -690,13 +692,12 @@ namespace crypto {
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////
+    // https://www.johndcook.com/blog/2018/08/15/find-large-primes/
 
     bool random_prime(int k,size_t size,NNI &n)
     {
         buffer_t bytes;
         NNI two{2};
-
-        start_over:
 
         // create a size-byte, odd random number
         if (!rand_rdrand(size,bytes))
@@ -705,29 +706,39 @@ namespace crypto {
         bytes[0] |= 1;
         n = NNI(bytes);
 
+        start_over:
+        n = n + two;
+std::cout << "." << std::flush; //n << "=n+2 ";
+
         // compute d and r (and t)
         NNI d = n-1;
         int r = n.bottom_zeros();
+//std::cout << r << "=r ";
         d >>= r;
 
         int t = n.top_zeros();
+//std::cout << t << "=t ";
         NNI n2 = n-two;
+//std::cout << n2 << "=n2 " << std::flush;
 
         int i=0;
         witness_loop:
         if (i++>=k) return true; // SUCCESS!!
-        
+//std::cout << i << "=i " << std::flush;
+
         // choose a random a in [2,n-2]
         NNI a(1);
         while (a<2 || n2<a) {
             if (!rand_rdrand(size,bytes))
                 return false;
-            bytes[bytes.size()-1] &= static_cast<uint8_t>((1<<(8-t%8))-1);
+            bytes[size-1] &= static_cast<uint8_t>((1<<(8-t%8))-1);
             a = NNI(bytes);
+//std::cout << a << " " << std::flush;
         }
 
         // test
         NNI x = expmod(a,d,n);
+//std::cout << x << "=x " << std::flush;
         if (x<2 || n2<x) goto witness_loop;
         for (int j=0; j<r; j++) {
             x = x*x % n;
@@ -741,10 +752,11 @@ namespace crypto {
         // https://www.di-mgt.com.au/rsa_alg.html
         key.e = 65537;
 
-        if (!random_prime(30,2000/8,key.p))
+        if (!random_prime(40,1000/8,key.p))
             return false;
-        if (!random_prime(30,2050/8,key.p))
+        if (!random_prime(40,1050/8,key.q))
             return false;
+std::cout << std::endl;
 
         key.d = invmod(key.e,(key.p-1)*(key.q-1));
         return true;
@@ -794,9 +806,10 @@ namespace crypto {
         for (size_t i=0; i<count; i++) {
             digit_t d = reinterpret_cast<const digit_t *>(&bytes[0])[i];
             if (i==count-1 && bytes.size() % sizeof(digit_t))
-                d &= (1 << (bytes.size() % sizeof(digit_t))*8) - 1;
+                d &= (1UL << (bytes.size() % sizeof(digit_t))*8) - 1;
             digits[i] = d;
         }
+        canonicalize();
     }
 
     void NNI::print() const
@@ -840,6 +853,9 @@ namespace crypto {
 
     int NNI::top_zeros()
     {
+        assert(digits.size()>0); // not defined for 0
+        assert(digits.back()); // assume at most 63 zeros
+
         const digit_t HALF = 1UL<<(sizeof(digit_t)*8-1);
         digit_t x = digits.back();
         int shift = 0;
@@ -853,6 +869,7 @@ namespace crypto {
     int NNI::bottom_zeros()
     {
         assert(digits.size()>0); // not defined for 0
+        assert(digits.front()); // assume at most 63 zeros
 
         int shift = 0;
         digit_t bit = 1;
@@ -1055,15 +1072,20 @@ namespace crypto {
         NNI b = m;
         NNI x = 0;
         NNI y = 1;
+        NNI q,r;
         while (true) {
             if (a==1)
                 return y;
             assert(!(a == 0));
-            divide(x,b,b,a);
-            if (b==1) 
+            divide(q,r,b,a);
+            x = x + q*y;
+            b = r;
+            if (b==1)
                 return m-x;
             assert(!(b == 0));
-            divide(y,a,a,b);
+            divide(q,r,a,b);
+            y = y + q*x;
+            a = r;
         }
     }
 

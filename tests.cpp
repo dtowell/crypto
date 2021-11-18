@@ -288,6 +288,100 @@ int main()
         assert(pub.e == 65537);
     }
 
+
+
+
+
+
+
+
+
+    { // https://www.di-mgt.com.au/rsa_alg.html
+        rsa_private_t key;
+        key.p=11;
+        key.q=3;
+        key.e=3;
+        key.d=7;
+        //assert(is_prime(key.p));
+        //assert(is_prime(key.q));
+        assert(!(key.p == key.q));
+        auto n = key.p*key.q;
+        //assert(!is_prime(n));
+        
+        assert(expmod(expmod(0,key.e,n),key.d,n)==0);
+        assert(expmod(expmod(1,key.e,n),key.d,n)==1);
+        assert(expmod(expmod(2,key.e,n),key.d,n)==2);
+        assert(expmod(7,key.e,n)==13);
+        assert(expmod(13,key.d,n)==7);
+
+        uint64_t encoded[] = {0,1,8,27,31,26,18,13,17,3,10,11,12,19,5,9,4,29,24,28,14,21,22,23,30,16,20,15,7,2,6,25,32};
+        for (uint64_t m=0; m<33; m++)
+            assert(expmod(m,key.e,n)==encoded[m]);
+        for (uint64_t m=0; m<33; m++)
+            assert(expmod(expmod(m,key.e,n),key.d,n)==m);
+    }
+
+    { // https://www.di-mgt.com.au/rsa_alg.html
+        rsa_private_t key;
+        key.p=173;
+        key.q=149;
+        key.e=3;
+        key.d=16971;
+        //assert(is_prime(key.p));
+        //assert(is_prime(key.q));
+        assert(!(key.p == key.q));
+        auto n = key.p*key.q;
+        //assert(!is_prime(n));
+        assert(invmod(key.e,(key.p-1)*(key.q-1))==key.d);
+
+        assert(expmod( 1289,key.e,n)==18524);
+        assert(expmod(  821,key.e,n)== 7025);
+        assert(expmod(   47,key.e,n)==  715);
+        assert(expmod(  518,key.e,n)== 2248);
+        assert(expmod(16187,key.e,n)==24465);
+
+        rsa_public_t pub;
+        assert(rsa_publish(key,pub));
+        NNI encoded;
+        assert(rsa_encode( 1289,pub,encoded)); assert(encoded == 18524);
+        assert(rsa_encode(  821,pub,encoded)); assert(encoded ==  7025);
+        assert(rsa_encode(   47,pub,encoded)); assert(encoded ==   715);
+        assert(rsa_encode(  518,pub,encoded)); assert(encoded ==  2248);
+        assert(rsa_encode(16187,pub,encoded)); assert(encoded == 24465);
+
+        NNI decoded;
+        assert(rsa_decode(18524,key,decoded)); assert(decoded ==  1289);
+        assert(rsa_decode( 7025,key,decoded)); assert(decoded ==   821);
+        assert(rsa_decode(  715,key,decoded)); assert(decoded ==    47);
+        assert(rsa_decode( 2248,key,decoded)); assert(decoded ==   518);
+        assert(rsa_decode(24465,key,decoded)); assert(decoded == 16187);
+    }
+
+    {
+        rsa_private_t key;
+        assert(rsa_generate(key));
+        //assert(is_prime(key.p));
+        //assert(is_prime(key.q));
+        assert(!(key.p == key.q));
+        auto n = key.p*key.q;
+        //assert(!is_prime(n));
+        //std::cout << std::hex << key.p << " " << std::hex << key.q << "\n";
+
+        assert(expmod(expmod(0,key.e,n),key.d,n)==0);
+        assert(expmod(expmod(1,key.e,n),key.d,n)==1);
+        assert(expmod(expmod(2,key.e,n),key.d,n)==2);
+
+        for (uint64_t i=0; i<100; i+=13)
+            assert(expmod(expmod(i,key.e,n),key.d,n)==i);
+
+        rsa_public_t pub;
+        assert(rsa_publish(key,pub));
+        pub.n = key.p*key.q;
+        //assert(!is_prime(pub.n));
+        //assert(is_prime(pub.e));
+        assert(pub.e == 65537);
+    }
+
 #if 0
     {
         nni_t a;
